@@ -1,6 +1,6 @@
-# Ein Kunde pro Zeile. Gross-/Kleinschreibung egal.
-# Treffer, wenn der Text irgendwo im Incident-Titel vorkommt.
-# Aenderungen gelten ab dem naechsten Durchlauf, kein Neustart noetig.
-# Kopieren nach customers.txt und eigene Kunden eintragen.
-kunde-a
-kunde-b
+# One customer per line. Case doesn't matter.
+# Match if the text appears anywhere in the incident title.
+# Changes apply from the next poll, no restart needed.
+# Copy to customers.txt and enter your own customers.
+customer-a
+customer-b

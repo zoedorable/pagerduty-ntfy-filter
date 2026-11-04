@@ -1,69 +1,68 @@
 # pagerduty-ntfy-filter
 
-Weniger Lärm im PagerDuty-Dienst: Das Tool fragt PagerDuty regelmäßig nach offenen
-Incidents ab und schickt dir per [ntfy](https://ntfy.sh) nur dann einen **lauten** Push
-aufs Handy, wenn einer **deiner Kunden** im Titel steht und der Service passt.
-Alles andere kommt als **leise** Mitteilung oder wird ignoriert.
+Less noise on PagerDuty duty: the tool regularly polls PagerDuty for open incidents and
+sends you a **loud** push via [ntfy](https://ntfy.sh) only when **one of your customers**
+is in the title and the service matches. Everything else arrives as a **silent**
+notification or is ignored.
 
-Dazu gibt es eine Live-Ansicht im Browser, über die du Incidents direkt in
-PagerDuty acknowledgen und resolven oder den Rest deiner Schicht abgeben kannst.
+There's also a dashboard in the browser where you can acknowledge and resolve incidents
+directly in PagerDuty or hand off the rest of your shift.
 
-## Funktionen
+## Features
 
-- **Filter nach Kunde und Service:** Kundenliste als einfache Textdatei, Treffer per
-  Teilstring im Incident-Titel (Groß-/Kleinschreibung egal), auch direkt in der
-  Live-Ansicht pflegbar. Optionaler Service-Filter,
-  z. B. nur `CSOC (High)` laut.
-- **Laut oder leise:** Laute Alarme mit ntfy-Priorität *urgent*. Leise Mitteilungen
-  ohne Ton, optional auf einem eigenen Topic.
-- **Kein Doppel-Alarm:** Jeder Incident wird nur einmal gemeldet, auch nach einem Neustart.
-- **Live-Ansicht** (`http://localhost:8790`, nur lokal erreichbar):
-  - oben die offenen Incidents deiner Kunden, darunter die acknowledged (von dir und
-    die deiner Kunden, mit Spalte „Ack von“); während LAS zählen alle Kunden als deine
-  - Ack und Resolve mit einem Klick
-  - Zähler-Kacheln als Filter, Verlauf aller Entscheidungen
-  - Einstellungen (leise Mitteilungen, Service-Filter, Schedule, Zeitfenster …) live
-    ändern, ohne Neustart
-- **Browser-Extension** (optional, Chrome/Edge): kompaktes Popup mit Ack/Resolve, Badge
-  mit der Zahl offener Incidents deiner Kunden, Icon blinkt bei lauten Alarmen
-- **Nur im Schedule aktiv** (`ONLY_ON_CALL=true`): Bist du laut PagerDuty gerade nicht
-  on-call, pausiert der Filter und schickt nichts.
-- **On-Call übergeben:** Ein Button legt einen Override von jetzt bis Schichtende auf
-  einen anderen User an (`OVERRIDE_USER`, z. B. ein Dummy-User). Nach einer Pause holt
-  „Übergabe zurücknehmen“ den On-Call wieder zurück (löscht den Override).
-- **LAS (Last Analyst Standing):** Ein Button schaltet die PagerDuty-Push-Benachrichtigungen
-  bis 18 Uhr an (alle Kunden), danach entfernt der Filter sie automatisch wieder. „Ohne Ende an“
-  schaltet sie ohne Endzeit an, bis du sie selbst wieder ausschaltest. In den Einstellungen
-  wählst du, welche Kontakte (Push, SMS, Anruf, E-Mail) und welche Dringlichkeit.
-- **Arbeitszeiten** (`ONLY_IN_WINDOW=true`): nur zu festen Zeiten aktiv.
+- **Filter by customer and service:** customer list as a plain text file, matched as a
+  substring of the incident title (case-insensitive), also editable in the dashboard.
+  Optional service filter, e.g. only `CSOC (High)` loud.
+- **Loud or silent:** loud alarms with ntfy priority *urgent*. Silent notifications
+  without sound, optionally on a separate topic.
+- **No double alarms:** each incident is reported only once, even after a restart.
+- **Dashboard** (`http://localhost:8790`, local only):
+  - at the top the open incidents of your customers, below them the acknowledged ones
+    (yours and those of your customers, with an "Acked by" column); during LAS all
+    customers count as yours
+  - Ack and Resolve with one click
+  - counter tiles as filters, history of all decisions
+  - change settings (silent notifications, service filter, schedule, time window …) live,
+    without a restart
+- **Browser extension** (optional, Chrome/Edge): compact popup with Ack/Resolve, badge
+  with the number of open incidents of your customers, icon blinks on loud alarms
+- **Only while on call** (`ONLY_ON_CALL=true`): if PagerDuty says you're not on call right
+  now, the filter pauses and sends nothing.
+- **Hand off on-call:** a button creates an override from now until the end of the shift
+  for another user (`OVERRIDE_USER`, e.g. a dummy user). After a break, "Take back on-call"
+  gets the on-call back (deletes the override).
+- **LAS (Last Analyst Standing):** a button turns on PagerDuty push notifications until
+  18:00 (all customers), after that the filter removes them again automatically. "On (no end)"
+  turns them on without an end time, until you turn them off yourself. In Settings you pick
+  which contacts (push, SMS, call, email) and which urgency.
+- **Working hours** (`ONLY_IN_WINDOW=true`): only active at fixed times.
 
-## Schnellstart
+## Quick start
 
-Voraussetzung: Python 3.9 oder neuer und ein PagerDuty-API-Key.
+Requirements: Python 3.9 or newer and a PagerDuty API key.
 
 ```bash
 git clone https://github.com/mstump2s/pagerduty-ntfy-filter.git
 cd pagerduty-ntfy-filter
-cp config.env.example config.env          # PD_API_TOKEN und NTFY_TOPIC eintragen
-cp customers.txt.example customers.txt    # eigene Kunden eintragen
+cp config.env.example config.env          # fill in PD_API_TOKEN and NTFY_TOPIC
+cp customers.txt.example customers.txt    # enter your own customers
 chmod +x pd-filter.sh
-./pd-filter.sh an                         # startet im Hintergrund
-./pd-filter.sh ansicht                    # Live-Ansicht öffnen
+./pd-filter.sh start                      # starts in the background
+./pd-filter.sh view                       # open the dashboard
 ```
 
-Unter Windows: `an.bat`, `aus.bat`, `ansicht.bat`.
+On Windows: `start.bat`, `stop.bat`, `view.bat`.
 
-Dann in der [ntfy-App](https://ntfy.sh) dein Topic abonnieren. Prüfen, wie ein Titel
-behandelt würde, geht ohne PagerDuty mit `./pd-filter.sh test "Titel" "Service"`.
+Then subscribe to your topic in the [ntfy app](https://ntfy.sh). To check how a title
+would be handled without PagerDuty: `./pd-filter.sh test "Title" "Service"`.
 
-Alle Einstellungen und Details stehen in der [Anleitung](ANLEITUNG.md).
+All settings and details are in the [guide](GUIDE.md).
 
-## Sicherheit
+## Security
 
-- `config.env` (API-Key, ntfy-Topics) und `customers.txt` sind in `.gitignore` und
-  gehören nicht ins Repo.
-- ntfy-Topics auf ntfy.sh sind öffentlich lesbar, wenn man den Namen kennt: einen
-  langen, zufälligen Namen wählen. Datenschutz (`QUIET`) ist fest an: Es landen keine
-  Incident-Titel im Log und keine Kundendaten in den ntfy-Mitteilungen, dort steht nur „Incident“.
-- Die Live-Ansicht lauscht nur auf `127.0.0.1` und nimmt Aktionen nur von der eigenen
-  Seite an.
+- `config.env` (API key, ntfy topics) and `customers.txt` are in `.gitignore` and
+  don't belong in the repo.
+- ntfy topics on ntfy.sh are publicly readable if you know the name: pick a long,
+  random name. Privacy mode (`QUIET`) is always on: no incident titles end up in the
+  log and no customer data in the ntfy notifications, they only say "Incident".
+- The dashboard only listens on `127.0.0.1` and only accepts actions from its own page.

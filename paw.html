@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -86,40 +86,40 @@
     <span class="dot" id="dot"></span>
     <h1>PAW Exchange</h1>
     <div class="right">
-      <a href="/">← PagerDuty-Filter</a>
-      <button class="btn" id="refresh" type="button">Neu laden</button>
+      <a href="/">← PagerDuty filter</a>
+      <button class="btn" id="refresh" type="button">Reload</button>
     </div>
   </header>
   <div class="meta">
-    <span>Zuletzt geholt: <b id="updated">–</b></span>
-    <span>Analyse läuft mit: <b>Claude Enterprise (~/.claude-work)</b>, Sonnet · Boost: Opus</span>
+    <span>Last fetched: <b id="updated">–</b></span>
+    <span>Analysis runs with: <b>Claude Enterprise (~/.claude-work)</b>, Sonnet · Boost: Opus</span>
   </div>
   <div class="error" id="error" hidden></div>
 
-  <h2>Wartende Uploads vom PAW</h2>
-  <div class="uploads" id="uploads"><div class="card empty">lade…</div></div>
+  <h2>Pending uploads from the PAW</h2>
+  <div class="uploads" id="uploads"><div class="card empty">loading…</div></div>
 
-  <h2>Ergebnisse auf dem PAW</h2>
+  <h2>Results on the PAW</h2>
   <div class="card"><table>
-    <thead><tr><th>Gesendet</th><th>Batch</th><th>Zu Upload</th><th class="num">Kosten</th></tr></thead>
+    <thead><tr><th>Sent</th><th>Batch</th><th>For upload</th><th class="num">Cost</th></tr></thead>
     <tbody id="results"><tr><td colspan="4" class="empty">–</td></tr></tbody>
   </table></div>
 
-  <h2>Kosten pro Analyse-Lauf <span class="h-sum" id="cost-sum"></span></h2>
+  <h2>Cost per analysis run <span class="h-sum" id="cost-sum"></span></h2>
   <div class="card"><table>
-    <thead><tr><th>Zuletzt aktiv</th><th>Upload</th><th>Batch</th><th>Modell</th><th class="num">Cache Read</th><th class="num">Kosten</th></tr></thead>
+    <thead><tr><th>Last active</th><th>Upload</th><th>Batch</th><th>Model</th><th class="num">Cache read</th><th class="num">Cost</th></tr></thead>
     <tbody id="costs"><tr><td colspan="6" class="empty">–</td></tr></tbody>
   </table></div>
-  <div class="meta">Laut ccusage (Listenpreise, --offline). Ein Lauf = eine Claude-Sitzung im PAW-Ordner; Nachfragen im selben Chat zählen mit.</div>
+  <div class="meta">According to ccusage (list prices, --offline). One run = one Claude session in the PAW folder; follow-ups in the same chat count too.</div>
 </main>
 <div id="toast" role="status"></div>
 
 <script>
   const $ = id => document.getElementById(id);
-  const notes = {};            // Upload-ID -> Text der Zusatzhinweise (bleibt beim Neuzeichnen erhalten)
+  const notes = {};            // upload ID -> text of the extra notes (kept across re-renders)
   let data = null, busy = false;
-  // Der automatische Start laeuft im pd-filter-Dienst (auch ohne offene Seite); hier nur Countdown anzeigen
-  let autoAt = {};             // Upload-ID -> Zeitpunkt (ms), zu dem der Dienst die Analyse startet
+  // The auto-start runs in the pd-filter service (even without the page open); only show the countdown here
+  let autoAt = {};             // upload ID -> time (ms) at which the service starts the analysis
 
   function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
   function usd(n) { return "$" + (n || 0).toFixed(2); }
@@ -129,9 +129,9 @@
     const d = typeof v === "number" ? new Date(v * 1000) : new Date(v);
     if (isNaN(d)) return "";
     const today = new Date().toDateString() === d.toDateString();
-    return (today ? "heute" : d.toLocaleDateString("de-DE")) + ", " + d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+    return (today ? "today" : d.toLocaleDateString("en-GB")) + ", " + d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
   }
-  // Upload-IDs sind lokale Zeit YYYY-MM-DD_HHMMSS
+  // Upload IDs are local time YYYY-MM-DD_HHMMSS
   function idTime(id) { const m = id.match(/^(\d{4})-(\d\d)-(\d\d)_(\d\d)(\d\d)(\d\d)$/); return m ? new Date(m[1], m[2] - 1, m[3], m[4], m[5], m[6]) : null; }
 
   let toastTimer;
@@ -143,13 +143,13 @@
   async function load(force) {
     try {
       const r = await fetch("/api/paw" + (force ? "?refresh=1" : ""), { cache: "no-store" });
-      if (!r.ok) throw new Error(r.status === 404 ? "PAW Exchange ist nicht eingerichtet (analyze.sh fehlt)" : "HTTP " + r.status);
+      if (!r.ok) throw new Error(r.status === 404 ? "PAW Exchange is not set up (analyze.sh missing)" : "HTTP " + r.status);
       data = await r.json();
       autoAt = Object.fromEntries(Object.entries(data.auto || {}).map(([k, v]) => [k, v * 1000]));
       render();
     } catch (e) {
       $("dot").className = "dot err";
-      $("error").hidden = false; $("error").textContent = "Live-Ansicht nicht erreichbar: " + e.message;
+      $("error").hidden = false; $("error").textContent = "Dashboard not reachable: " + e.message;
     }
   }
 
@@ -163,34 +163,34 @@
     const batchFor = id => (data.uploads.find(u => u.id === id) || data.results.find(r => r.inbox === id && r.batch) || {}).batch || "";
 
     const box = $("uploads");
-    // Beim Tippen nicht neu zeichnen, sonst springt der Cursor
+    // Don't re-render while typing, otherwise the cursor jumps
     const typing = box.contains(document.activeElement) && document.activeElement.tagName === "TEXTAREA";
     if (!typing && !data.uploads.length) {
-      box.innerHTML = '<div class="card empty">Keine wartenden Uploads. Neue erscheinen hier, sobald sie auf dem PAW hochgeladen sind.</div>';
+      box.innerHTML = '<div class="card empty">No pending uploads. New ones appear here as soon as they are uploaded on the PAW.</div>';
     } else if (!typing) {
       box.innerHTML = data.uploads.map(u => {
         const res = resultsFor(u.id), started = data.started[u.id];
-        let badge = '<span class="badge b-new">Neu</span>';
+        let badge = '<span class="badge b-new">New</span>';
         if (u.error) badge = '<span class="badge b-err">' + esc(u.error) + '</span>';
-        else if (res.length) badge = '<span class="badge b-done">Ergebnis gesendet ' + esc(when(res[0].created)) + '</span>';
-        else if (started) badge = '<span class="badge b-run">Analyse gestartet ' + esc(when(started)) + '</span>';
+        else if (res.length) badge = '<span class="badge b-done">Result sent ' + esc(when(res[0].created)) + '</span>';
+        else if (started) badge = '<span class="badge b-run">Analysis started ' + esc(when(started)) + '</span>';
         const cost = costFor(u.id), nruns = runs.filter(c => c.id === u.id).length;
-        if (cost !== null) badge += ` <span class="badge b-cost" title="${nruns} Lauf/Läufe">${usd(cost)}</span>`;
+        if (cost !== null) badge += ` <span class="badge b-cost" title="${nruns} run(s)">${usd(cost)}</span>`;
         const isNew = !u.error && !res.length && !started;
         const total = u.files.reduce((n, f) => n + (f.size || 0), 0);
         return `<article class="card upload${isNew ? " new" : ""}" data-id="${esc(u.id)}">
           <div class="u-head"><strong>${esc(u.batch || u.id)}</strong>
-            <span class="when">${esc(when(u.created) || when(idTime(u.id)))} · ${u.files.length} Datei(en), ${size(total)}</span>${badge}</div>
+            <span class="when">${esc(when(u.created) || when(idTime(u.id)))} · ${u.files.length} file(s), ${size(total)}</span>${badge}</div>
           ${u.files.length ? '<div class="files">' + u.files.map(f => `<span class="file">${esc(f.name)} <span>${size(f.size || 0)}</span></span>`).join("") + "</div>" : ""}
-          <div class="instr${u.instructions ? "" : " none"}">${esc(u.instructions || "Keine Instructions – Claude macht eine allgemeine Triage.")}</div>
-          <div class="note-box" ${notes[u.id] ? "" : "hidden"}><textarea class="note" maxlength="1500" placeholder="Zusätzliche Hinweise für Claude (optional)">${esc(notes[u.id] || "")}</textarea></div>
+          <div class="instr${u.instructions ? "" : " none"}">${esc(u.instructions || "No instructions – Claude does a general triage.")}</div>
+          <div class="note-box" ${notes[u.id] ? "" : "hidden"}><textarea class="note" maxlength="1500" placeholder="Additional notes for Claude (optional)">${esc(notes[u.id] || "")}</textarea></div>
           <div class="actions">
-            <button class="btn primary" data-a="analyze" type="button" ${u.error ? "disabled" : ""}>${res.length || started ? "Nochmal analysieren" : "Analysieren"}</button>
-            <button class="btn" data-a="boost" type="button" title="Gleiche Analyse auf Opus statt Sonnet – für schwierige Fälle, kostet etwa das 5–10-Fache" ${u.error ? "disabled" : ""}>Boost (Opus)</button>
-            <span class="auto" ${autoAt[u.id] ? "" : "hidden"}>Startet automatisch in <b>${autoLeft(u.id)}</b> s</span>
-            <button class="btn" data-a="stop" type="button" ${autoAt[u.id] ? "" : "hidden"}>Stopp</button>
-            <button class="link-btn" data-a="note" type="button" ${notes[u.id] ? "hidden" : ""}>+ Hinweis</button>
-            <button class="btn danger" data-a="done" type="button" style="margin-left:auto">Erledigt</button>
+            <button class="btn primary" data-a="analyze" type="button" ${u.error ? "disabled" : ""}>${res.length || started ? "Analyse again" : "Analyse"}</button>
+            <button class="btn" data-a="boost" type="button" title="Same analysis on Opus instead of Sonnet – for difficult cases, costs about 5–10 times as much" ${u.error ? "disabled" : ""}>Boost (Opus)</button>
+            <span class="auto" ${autoAt[u.id] ? "" : "hidden"}>Starts automatically in <b>${autoLeft(u.id)}</b> s</span>
+            <button class="btn" data-a="stop" type="button" ${autoAt[u.id] ? "" : "hidden"}>Stop</button>
+            <button class="link-btn" data-a="note" type="button" ${notes[u.id] ? "hidden" : ""}>+ Note</button>
+            <button class="btn danger" data-a="done" type="button" style="margin-left:auto">Done</button>
           </div>
         </article>`;
       }).join("");
@@ -201,7 +201,7 @@
         <td>${r.error ? '<span class="badge b-err">' + esc(r.error) + "</span>" : esc(r.batch || "–")}</td>
         <td class="time">${esc(r.inbox || "–")}</td>
         <td class="num">${costFor(r.inbox) !== null ? usd(costFor(r.inbox)) : "–"}</td></tr>`).join("")
-      : '<tr><td colspan="4" class="empty">Noch keine Ergebnisse.</td></tr>';
+      : '<tr><td colspan="4" class="empty">No results yet.</td></tr>';
 
     $("costs").innerHTML = runs.length ? runs.map(c => `<tr>
         <td class="time">${esc(when(c.last))}</td>
@@ -210,9 +210,9 @@
         <td>${esc(c.model || "–")}</td>
         <td class="num">${mtok(c.cacheRead)}</td>
         <td class="num"><b>${usd(c.cost)}</b></td></tr>`).join("")
-      : '<tr><td colspan="6" class="empty">Noch keine Kosten (ccusage nicht gefunden oder keine Sitzungen).</td></tr>';
+      : '<tr><td colspan="6" class="empty">No costs yet (ccusage not found or no sessions).</td></tr>';
     const sum = runs.reduce((n, c) => n + c.cost, 0);
-    $("cost-sum").textContent = runs.length ? `· ${runs.length} Läufe, ${usd(sum)} gesamt, Ø ${usd(sum / runs.length)}` : "";
+    $("cost-sum").textContent = runs.length ? `· ${runs.length} runs, ${usd(sum)} total, avg ${usd(sum / runs.length)}` : "";
 
     const waiting = data.uploads.filter(u => !u.error && !resultsFor(u.id).length && !data.started[u.id]).length;
     document.title = (waiting ? `(${waiting}) ` : "") + "PAW Exchange";
@@ -239,14 +239,14 @@
     try {
       await post("analyze", { id, note: notes[id] || "", boost });
       delete notes[id];
-      toast(boost ? "Claude (Opus) startet in iTerm …" : "Claude startet in iTerm …");
+      toast(boost ? "Claude (Opus) is starting in iTerm …" : "Claude is starting in iTerm …");
       await load();
     } catch (e) {
       toast(e.message, true);
       if (btn) btn.disabled = false;
     } finally { busy = false; }
   }
-  // Countdown anzeigen; ist er abgelaufen, hat der Dienst gestartet -> neu laden
+  // Show the countdown; once it has run out the service has started -> reload
   setInterval(() => {
     for (const id of Object.keys(autoAt)) {
       const card = $("uploads").querySelector(`[data-id="${CSS.escape(id)}"]`);
@@ -261,11 +261,11 @@
   $("uploads").addEventListener("click", async ev => {
     const btn = ev.target.closest("[data-a]"); if (!btn || busy) return;
     const card = btn.closest("[data-id]"), id = card.dataset.id;
-    if (btn.dataset.a === "stop") { stopAuto(id); toast("Automatischer Start gestoppt"); return; }
+    if (btn.dataset.a === "stop") { stopAuto(id); toast("Auto-start stopped"); return; }
     if (btn.dataset.a === "note") { stopAuto(id); btn.hidden = true; card.querySelector(".note-box").hidden = false; card.querySelector(".note").focus(); return; }
     if (btn.dataset.a === "done" && !btn.classList.contains("armed")) {
-      btn.classList.add("armed"); btn.textContent = "Wirklich löschen?";
-      setTimeout(() => { if (btn.isConnected) { btn.classList.remove("armed"); btn.textContent = "Erledigt"; } }, 3000);
+      btn.classList.add("armed"); btn.textContent = "Really delete?";
+      setTimeout(() => { if (btn.isConnected) { btn.classList.remove("armed"); btn.textContent = "Done"; } }, 3000);
       return;
     }
     if (btn.dataset.a === "analyze") { stopAuto(id); return analyze(id, btn); }
@@ -274,7 +274,7 @@
     try {
       stopAuto(id);
       await post("done", { id });
-      toast("Upload gelöscht");
+      toast("Upload deleted");
       await load();
     } catch (e) {
       toast(e.message, true);

@@ -1,14 +1,14 @@
 """
-PAW Exchange in der Live-Ansicht: wartende Uploads vom PAW anzeigen und per Klick
-mit Claude (Enterprise-Account) analysieren lassen.
+PAW Exchange in the dashboard: show pending uploads from the PAW and have them analysed
+by Claude (Enterprise account) with one click.
 
-Alles Kryptografische und Git macht analyze.sh aus dem analyze-Skill; hier wird es nur
-aufgerufen. Ohne analyze.sh ist die Seite aus.
+All crypto and Git work is done by analyze.sh from the analyze skill; it is only called
+from here. Without analyze.sh the page is off.
 
-  PAW_ANALYZE         optional, Pfad zu analyze.sh.
-                      Standard: ~/.claude-work/skills/analyze/analyze.sh
-  PAW_CLAUDE_CONFIG   optional, Claude-Config des Enterprise-Accounts. Standard: ~/.claude-work
-  PAW_CCUSAGE         optional, Befehl fuer die Kosten pro Analyse. Standard: npx --yes ccusage@20.0.45
+  PAW_ANALYZE         optional, path to analyze.sh.
+                      Default: ~/.claude-work/skills/analyze/analyze.sh
+  PAW_CLAUDE_CONFIG   optional, Claude config of the Enterprise account. Default: ~/.claude-work
+  PAW_CCUSAGE         optional, command for the cost per analysis. Default: npx --yes ccusage@20.0.45
 """
 
 import json
@@ -28,26 +28,26 @@ UPLOAD_ID_RE = re.compile(r"^\d{4}-\d{2}-\d{2}_\d{6}$")
 CACHE_SECONDS = 20
 COST_SECONDS = 120
 CCUSAGE = shlex.split(os.environ.get("PAW_CCUSAGE", "npx --yes ccusage@20.0.45"))
-# Claude legt die Sitzungen unter projects/<Pfad mit - statt / und .> ab
+# Claude stores sessions under projects/<path with - instead of / and .>
 SESSIONS_DIR = CLAUDE_CONFIG / "projects" / re.sub(r"[^A-Za-z0-9]", "-", str(WORK_DIR))
 SESSION_UPLOAD_RE = re.compile(r"Upload: +(\d{4}-\d{2}-\d{2}_\d{6})|<command-args>\s*(\d{4}-\d{2}-\d{2}_\d{6})")
 
 _lock = threading.Lock()
 _cache = {"at": 0.0, "data": None}
-_started = {}                   # Upload-ID -> Zeitpunkt, an dem die Analyse gestartet wurde
+_started = {}                   # upload ID -> time the analysis was started
 _cost_lock = threading.Lock()
 _cost_cache = {"at": 0.0, "data": []}
-_session_uploads = {}           # Sitzungsdatei -> ((mtime, size), Upload-ID oder None)
+_session_uploads = {}           # session file -> ((mtime, size), upload ID or None)
 
-# Automatischer Start laeuft im Dienst, nicht im Browser: neue Uploads starten nach AUTO_SEC Sekunden,
-# auch wenn die PAW-Seite nicht offen ist. Nur Uploads, die erst nach dem Start des Dienstes auftauchen
-# und juenger als AUTO_MAX_AGE sind; jeder Upload hoechstens einmal automatisch.
+# Auto-start runs in the service, not the browser: new uploads start after AUTO_SEC seconds,
+# even if the PAW page is not open. Only uploads that appear after the service started
+# and are younger than AUTO_MAX_AGE; each upload is auto-started at most once.
 AUTO_SEC = 10
 AUTO_MAX_AGE = 15 * 60
 AUTO_TICK = 2
-_auto = {}                      # Upload-ID -> Zeitpunkt (epoch), zu dem die Analyse automatisch startet
-_auto_handled = set()           # gestoppt, schon automatisch gestartet oder manuell gestartet
-_auto_seen = None               # Upload-IDs beim Start des Dienstes
+_auto = {}                      # upload ID -> time (epoch) at which the analysis auto-starts
+_auto_handled = set()           # stopped, already auto-started or started manually
+_auto_seen = None               # upload IDs when the service started
 _auto_thread = None
 
 
@@ -56,20 +56,20 @@ def enabled():
 
 
 def _run(*args, timeout=120):
-    # Die Live-Ansicht ist kein Claude: Variablen einer evtl. startenden Claude-Sitzung nicht weitergeben,
-    # sonst blockiert analyze.sh (es laesst Daten nur an den Enterprise-Account)
+    # The dashboard is not Claude: don't pass on variables of a Claude session that may have started it,
+    # otherwise analyze.sh blocks (it only releases data to the Enterprise account)
     env = {k: v for k, v in os.environ.items() if k not in ("CLAUDECODE", "CLAUDE_CONFIG_DIR")}
     try:
         r = subprocess.run([str(ANALYZE_SH), *args], capture_output=True, text=True, timeout=timeout, env=env)
     except subprocess.TimeoutExpired:
-        return "analyze.sh hat nicht rechtzeitig geantwortet", ""
+        return "analyze.sh did not respond in time", ""
     if r.returncode != 0:
-        return (r.stderr.strip() or r.stdout.strip() or "analyze.sh fehlgeschlagen").lstrip("✗ "), ""
+        return (r.stderr.strip() or r.stdout.strip() or "analyze.sh failed").lstrip("✗ "), ""
     return None, r.stdout
 
 
 def state(force=False):
-    """Uploads und Ergebnisse, hoechstens alle CACHE_SECONDS frisch aus dem Repo geholt."""
+    """Uploads and results, fetched fresh from the repo at most every CACHE_SECONDS."""
     with _lock:
         if not force and _cache["data"] and time.monotonic() - _cache["at"] < CACHE_SECONDS:
             return _cache["data"] | {"auto": dict(_auto), "costs": costs()}
@@ -89,8 +89,8 @@ def state(force=False):
 
 
 def _session_upload(path):
-    """Upload-ID, die eine Claude-Sitzung zuletzt analysiert hat (aus der get-Ausgabe oder den /analyze-Argumenten).
-    Die letzte, nicht die erste: eine fortgesetzte Sitzung (Rueckfrage) enthaelt den Verlauf der ersten Analyse."""
+    """Upload ID a Claude session analysed last (from the get output or the /analyze arguments).
+    The last, not the first: a resumed session (follow-up question) contains the history of the first analysis."""
     st = path.stat()
     key = (st.st_mtime, st.st_size)
     hit = _session_uploads.get(path)
@@ -120,7 +120,7 @@ def _ccusage_sessions():
 
 
 def costs():
-    """Kosten pro Analyse-Lauf laut ccusage (eine Claude-Sitzung = ein Lauf, Nachfragen im Chat zaehlen mit). Neueste zuerst."""
+    """Cost per analysis run according to ccusage (one Claude session = one run, follow-ups in the chat count too). Newest first."""
     with _cost_lock:
         if time.monotonic() - _cost_cache["at"] < COST_SECONDS:
             return _cost_cache["data"]
@@ -151,7 +151,7 @@ def _known(upload_id):
 
 
 def _session_for(upload_id):
-    """Neueste Claude-Sitzung, die diesen Upload analysiert hat (fuer Rueckfragen), sonst None."""
+    """Newest Claude session that analysed this upload (for follow-up questions), otherwise None."""
     if not UPLOAD_ID_RE.match(upload_id or "") or not SESSIONS_DIR.is_dir():
         return None
     hits = [p for p in SESSIONS_DIR.glob("*.jsonl") if _session_upload(p) == upload_id]
@@ -159,39 +159,39 @@ def _session_for(upload_id):
 
 
 def analyze(upload_id, note="", boost=False):
-    """Oeffnet iTerm mit Claude (Enterprise-Account), das /analyze fuer diesen Upload ausfuehrt.
-    boost: /analyze-boost statt /analyze – gleicher Ablauf, aber auf Opus statt Sonnet."""
+    """Opens iTerm with Claude (Enterprise account) running /analyze for this upload.
+    boost: /analyze-boost instead of /analyze – same flow, but on Opus instead of Sonnet."""
     u = _upload(upload_id)
     if not u:
-        return "Upload nicht gefunden"
-    # Rueckfrage vom PAW: die Sitzung der urspruenglichen Analyse fortsetzen, damit Claude den Kontext hat.
-    # --fork-session: Kopie mit neuer ID, die alte Sitzung (evtl. noch offen im Fenster) bleibt unberuehrt.
+        return "Upload not found"
+    # Follow-up question from the PAW: resume the session of the original analysis so Claude has the context.
+    # --fork-session: copy with a new ID, the old session (maybe still open in a window) stays untouched.
     session = _session_for(((u.get("followup") or {}).get("inbox")) or "")
     resume = f"--resume {shlex.quote(session)} --fork-session " if session else ""
     run_dir = WORK_DIR / "launch"
     run_dir.mkdir(parents=True, exist_ok=True)
     prompt = f"/{'analyze-boost' if boost else 'analyze'} {upload_id}"
     if note.strip():
-        prompt += "\n\nZusätzliche Hinweise des Analysten (vom Mac):\n" + note.strip()
-    # Eigene Dateien pro Start, damit sich zwei kurz nacheinander gestartete Laeufe nicht ueberschreiben
+        prompt += "\n\nAdditional notes from the analyst (from the Mac):\n" + note.strip()
+    # Separate files per start so two runs started shortly after each other don't overwrite each other
     stem = f"{upload_id}_{time.strftime('%H%M%S')}"
     prompt_file = run_dir / f"{stem}.prompt"
     prompt_file.write_text(prompt, encoding="utf-8")
     cmd = run_dir / f"{stem}.command"
-    # Beendet sich Claude gleich wieder, bleibt das Fenster offen, damit die Fehlermeldung lesbar ist
+    # If Claude exits right away, the window stays open so the error message can be read
     cmd.write_text(
         "#!/bin/zsh -l\n"
         f"cd {shlex.quote(str(WORK_DIR))}\n"
         f"CLAUDE_CONFIG_DIR={shlex.quote(str(CLAUDE_CONFIG))} claude {resume}\"$(<{shlex.quote(str(prompt_file))})\"\n"
         "rc=$?\n"
-        "if (( SECONDS < 30 )); then print \"\\nClaude hat sich nach $SECONDS s beendet (Exit $rc). Enter schliesst das Fenster.\"; read -r; fi\n",
+        "if (( SECONDS < 30 )); then print \"\\nClaude exited after $SECONDS s (exit $rc). Press Enter to close the window.\"; read -r; fi\n",
         encoding="utf-8")
     cmd.chmod(0o700)
     r = subprocess.run(["open", "-a", "iTerm", str(cmd)], capture_output=True, text=True)
     if r.returncode != 0:
         r = subprocess.run(["open", "-a", "Terminal", str(cmd)], capture_output=True, text=True)
         if r.returncode != 0:
-            return "Terminal konnte nicht geoeffnet werden: " + r.stderr.strip()
+            return "Could not open a terminal: " + r.stderr.strip()
     with _lock:
         _started[upload_id] = time.time()
         _auto.pop(upload_id, None)
@@ -202,9 +202,9 @@ def analyze(upload_id, note="", boost=False):
 
 
 def done(upload_id):
-    """Upload aus dem Repo loeschen (analyze.sh done)."""
+    """Delete the upload from the repo (analyze.sh done)."""
     if not _known(upload_id):
-        return "Upload nicht gefunden"
+        return "Upload not found"
     err, _ = _run("done", upload_id)
     if not err:
         with _lock:
@@ -214,9 +214,9 @@ def done(upload_id):
 
 
 def stop_auto(upload_id):
-    """Automatischen Start fuer diesen Upload abbrechen (Stopp oder + Hinweis auf der Seite)."""
+    """Cancel the auto-start for this upload (Stop or + note on the page)."""
     if not UPLOAD_ID_RE.match(upload_id):
-        return "Upload nicht gefunden"
+        return "Upload not found"
     with _lock:
         _auto.pop(upload_id, None)
         _auto_handled.add(upload_id)
@@ -258,11 +258,11 @@ def _auto_step():
                 _auto[uid] = time.time() + AUTO_SEC
             elif _auto[uid] <= time.time():
                 del _auto[uid]
-                _auto_handled.add(uid)      # nie zweimal automatisch starten, auch wenn der Start scheitert
+                _auto_handled.add(uid)      # never auto-start twice, even if the start fails
                 due.append(uid)
     for uid in due:
         err = analyze(uid)
-        _auto_log(f"PAW: automatisch gestartet ({uid})" if not err else f"PAW: automatischer Start fehlgeschlagen ({uid}): {err}")
+        _auto_log(f"PAW: auto-started ({uid})" if not err else f"PAW: auto-start failed ({uid}): {err}")
 
 
 def _auto_log(text):
@@ -274,7 +274,7 @@ def _auto_log(text):
 
 
 def start_auto():
-    """Hintergrund-Thread fuer den automatischen Start (einmal pro Prozess)."""
+    """Background thread for the auto-start (once per process)."""
     global _auto_thread
     if _auto_thread or not enabled():
         return

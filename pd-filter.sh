@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# PagerDuty-Filter an/aus fuer Mac und Linux
-#   ./pd-filter.sh an       starten (im Hintergrund)
-#   ./pd-filter.sh aus      stoppen
-#   ./pd-filter.sh status   laeuft es?
-#   ./pd-filter.sh log      Log live ansehen (Strg+C beendet nur die Anzeige)
-#   ./pd-filter.sh ansicht  Live-Ansicht im Browser oeffnen
-#   ./pd-filter.sh test "Titel" ["Service"]   pruefen, ob ein Titel bimmeln wuerde
+# PagerDuty filter on/off for Mac and Linux
+#   ./pd-filter.sh start    start (in the background)
+#   ./pd-filter.sh stop     stop
+#   ./pd-filter.sh status   is it running?
+#   ./pd-filter.sh log      follow the log (Ctrl+C only ends the display)
+#   ./pd-filter.sh view     open the dashboard in the browser
+#   ./pd-filter.sh test "Title" ["Service"]   check whether a title would alert
 
 cd "$(dirname "$0")" || exit 1
 PIDFILE="pd_filter.pid"
@@ -13,14 +13,14 @@ LOGFILE="pd_filter.log"
 VENV=".venv"
 PY="$VENV/bin/python"
 
-# Eigene Python-Umgebung im Ordner (einmalig), damit requests sicher da ist
+# Own Python environment in this folder (one-time), so requests is always available
 ensure_venv() {
   if [ ! -x "$PY" ]; then
-    echo "Richte Python-Umgebung ein (einmalig)..."
-    python3 -m venv "$VENV" || { echo "venv konnte nicht erstellt werden."; exit 1; }
+    echo "Setting up Python environment (one-time)..."
+    python3 -m venv "$VENV" || { echo "Could not create venv."; exit 1; }
   fi
   if ! "$PY" -c "import requests" 2>/dev/null; then
-    "$PY" -m pip install --quiet requests || { echo "Installation von requests fehlgeschlagen."; exit 1; }
+    "$PY" -m pip install --quiet requests || { echo "Installing requests failed."; exit 1; }
   fi
 }
 
@@ -29,9 +29,9 @@ running() {
 }
 
 case "$1" in
-  an|start|on)
+  start|on|an)
     if running; then
-      echo "Laeuft schon (PID $(cat "$PIDFILE"))."
+      echo "Already running (PID $(cat "$PIDFILE"))."
       exit 0
     fi
     ensure_venv
@@ -39,30 +39,30 @@ case "$1" in
     echo $! > "$PIDFILE"
     sleep 2
     if running; then
-      echo "AN (PID $(cat "$PIDFILE")). Log: $LOGFILE  |  Live-Ansicht: ./pd-filter.sh ansicht"
+      echo "ON (PID $(cat "$PIDFILE")). Log: $LOGFILE  |  Dashboard: ./pd-filter.sh view"
     else
-      echo "Start fehlgeschlagen, letzte Log-Zeilen:"
+      echo "Start failed, last log lines:"
       tail -n 5 "$LOGFILE"
       rm -f "$PIDFILE"
       exit 1
     fi
     ;;
-  aus|stop|off)
+  stop|off|aus)
     if running; then
       PID="$(cat "$PIDFILE")"
       kill "$PID"
-      # bis zu 5 s auf sauberes Beenden warten
+      # wait up to 5 s for a clean shutdown
       for _ in 1 2 3 4 5 6 7 8 9 10; do kill -0 "$PID" 2>/dev/null || break; sleep 0.5; done
       kill -0 "$PID" 2>/dev/null && kill -9 "$PID"
       rm -f "$PIDFILE"
-      echo "AUS."
+      echo "OFF."
     else
       rm -f "$PIDFILE"
-      echo "War nicht an."
+      echo "Was not running."
     fi
     ;;
   status)
-    if running; then echo "AN (PID $(cat "$PIDFILE"))"; else echo "AUS"; fi
+    if running; then echo "ON (PID $(cat "$PIDFILE"))"; else echo "OFF"; fi
     ;;
   log)
     tail -n 20 -f "$LOGFILE"
@@ -71,16 +71,16 @@ case "$1" in
     ensure_venv
     "$PY" pd_filter.py --test "$2" "${3:-CSOC (High)}"
     ;;
-  ansicht|view)
+  view|ansicht)
     PORT=$(grep -E '^WEB_PORT=' config.env 2>/dev/null | cut -d= -f2 | tr -d ' "')
     URL="http://localhost:${PORT:-8790}"
-    running || echo "Hinweis: Filter ist AUS, die Ansicht zeigt erst etwas nach './pd-filter.sh an'."
+    running || echo "Note: the filter is OFF, the dashboard only shows data after './pd-filter.sh start'."
     if command -v open >/dev/null; then open "$URL"
     elif command -v xdg-open >/dev/null; then xdg-open "$URL"
-    else echo "Im Browser oeffnen: $URL"; fi
+    else echo "Open in the browser: $URL"; fi
     ;;
   *)
-    echo "Benutzung: $0 an | aus | status | log | ansicht | test \"Titel\" [\"Service\"]"
+    echo "Usage: $0 start | stop | status | log | view | test \"Title\" [\"Service\"]"
     exit 1
     ;;
 esac

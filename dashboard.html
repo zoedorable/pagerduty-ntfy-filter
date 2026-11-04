@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -106,126 +106,126 @@
 <main>
   <header>
     <span class="dot" id="dot"></span>
-    <h1>PagerDuty-Filter</h1>
-    <span class="status" id="status">verbinde…</span>
+    <h1>PagerDuty filter</h1>
+    <span class="status" id="status">connecting…</span>
     <a href="/paw" id="pawLink" style="margin-left:auto" hidden>PAW Exchange →</a>
   </header>
   <div class="meta">
-    <span>Letzte Abfrage: <b id="lastPoll">–</b></span>
-    <span>Läuft seit: <b id="started">–</b></span>
-    <span>Ton nur bei Service: <b id="svcFilter">–</b></span>
+    <span>Last poll: <b id="lastPoll">–</b></span>
+    <span>Running since: <b id="started">–</b></span>
+    <span>Sound only for service: <b id="svcFilter">–</b></span>
   </div>
-  <div class="meta"><span>Kunden:</span><span class="chips" id="customers"></span>
+  <div class="meta"><span>Customers:</span><span class="chips" id="customers"></span>
     <form id="addCustomer" class="add-customer" hidden>
-      <input id="newCustomer" placeholder="Kunde hinzufügen" maxlength="100" autocomplete="off">
+      <input id="newCustomer" placeholder="Add customer" maxlength="100" autocomplete="off">
       <button class="ack" type="submit">+</button>
     </form>
   </div>
   <div class="meta" id="shiftRow" hidden>
     <span>On-Call: <b id="shift">–</b></span>
-    <button class="ack" id="override">On-Call ab jetzt übergeben</button>
+    <button class="ack" id="override">Hand off on-call</button>
   </div>
   <div class="meta">
-    <span>PagerDuty-Benachrichtigung: <b id="las">aus</b></span>
-    <button class="ack" id="lasToggle">LAS an</button>
-    <button class="ack" id="shiftPush">Ohne Ende an</button>
+    <span>PagerDuty notifications: <b id="las">off</b></span>
+    <button class="ack" id="lasToggle">LAS on</button>
+    <button class="ack" id="shiftPush">On (no end)</button>
   </div>
   <div class="meta" id="takeBackRow" hidden>
-    <span>Übergeben: <b id="handedOver">–</b></span>
-    <button class="ack" id="takeBack">Übergabe zurücknehmen</button>
+    <span>Handed off: <b id="handedOver">–</b></span>
+    <button class="ack" id="takeBack">Take back on-call</button>
   </div>
 
   <details class="card settings" id="settingsBox">
-    <summary>Einstellungen</summary>
+    <summary>Settings</summary>
     <form id="settings">
       <h3>Filter &amp; ntfy</h3>
-      <label>Ton nur bei Service (mehrere mit ;, leer = alle)
-        <input name="SERVICE_FILTER" placeholder="z. B. CSOC (High)">
+      <label>Sound only for service (separate with ;, empty = all)
+        <input name="SERVICE_FILTER" placeholder="e.g. CSOC (High)">
       </label>
-      <label>Mitteilung ohne Ton bei
+      <label>Silent notification for
         <select name="SILENT_FOR">
-          <option value="kunden">meinen Kunden, wenn der Service nicht passt</option>
-          <option value="alle">allen Incidents ohne Ton</option>
-          <option value="keine">nie (nur Mitteilungen mit Ton)</option>
+          <option value="customers">my customers when the service does not match</option>
+          <option value="all">all incidents without sound</option>
+          <option value="none">never (only notifications with sound)</option>
         </select>
       </label>
-      <label class="check"><input type="checkbox" name="ONLY_IN_WINDOW"> Filter nur zu bestimmten Zeiten</label>
+      <label class="check"><input type="checkbox" name="ONLY_IN_WINDOW"> Filter only during set hours</label>
       <div class="row">
-        <label>von (Uhr) <input type="number" name="START_HOUR" min="0" max="24"></label>
-        <label>bis (Uhr) <input type="number" name="END_HOUR" min="0" max="24"></label>
-        <label class="check"><input type="checkbox" name="WEEKDAYS_ONLY"> nur Mo–Fr</label>
+        <label>from (hour) <input type="number" name="START_HOUR" min="0" max="24"></label>
+        <label>until (hour) <input type="number" name="END_HOUR" min="0" max="24"></label>
+        <label class="check"><input type="checkbox" name="WEEKDAYS_ONLY"> Mon–Fri only</label>
       </div>
-      <label>PagerDuty abfragen alle (Sekunden) <input type="number" name="POLL_SECONDS" min="5" max="3600"></label>
+      <label>Poll PagerDuty every (seconds) <input type="number" name="POLL_SECONDS" min="5" max="3600"></label>
 
       <h3>On-Call</h3>
-      <label class="check"><input type="checkbox" name="ONLY_ON_CALL"> Filter nur, wenn ich On-Call bin</label>
-      <label>On-Call übergeben an (PagerDuty-Name oder E-Mail)
+      <label class="check"><input type="checkbox" name="ONLY_ON_CALL"> Filter only while I am on-call</label>
+      <label>Hand off on-call to (PagerDuty name or email)
         <input name="OVERRIDE_USER">
       </label>
 
-      <h3>PagerDuty-Benachrichtigung (LAS)</h3>
-      <label>LAS bis (Uhr)
+      <h3>PagerDuty notifications (LAS)</h3>
+      <label>LAS until (hour)
         <input type="number" name="LAS_END_HOUR" min="0" max="24">
       </label>
-      <label>Für Incidents mit Dringlichkeit
+      <label>For incidents with urgency
         <select name="LAS_URGENCY">
-          <option value="hoch">hoch</option>
-          <option value="niedrig">niedrig</option>
-          <option value="beide">hoch und niedrig</option>
+          <option value="high">high</option>
+          <option value="low">low</option>
+          <option value="both">high and low</option>
         </select>
       </label>
       <fieldset class="contacts">
-        <legend>Benachrichtigen über (nichts gewählt = alle Geräte mit PagerDuty-App)</legend>
+        <legend>Notify via (none selected = all devices with the PagerDuty app)</legend>
         <input type="hidden" name="LAS_CONTACTS">
-        <div id="contactList" class="svc">lädt…</div>
+        <div id="contactList" class="svc">loading…</div>
       </fieldset>
-      <span class="svc">Datenschutz ist immer an: keine Incident-Titel ins Log, keine Kundendaten an ntfy.</span>
+      <span class="svc">Privacy mode is always on: no incident titles in the log, no customer data sent to ntfy.</span>
       <div class="row">
-        <button class="ack" type="submit">Speichern</button>
-        <span class="svc">Gilt sofort, wird in config.env gespeichert.</span>
+        <button class="ack" type="submit">Save</button>
+        <span class="svc">Applies immediately, saved to config.env.</span>
       </div>
     </form>
   </details>
 
   <div class="stats" id="stats">
-    <button class="stat active" data-f="all"><div class="n" id="nAll">0</div><div class="l">Offen gesamt</div></button>
-    <button class="stat alarm" data-f="alarm"><div class="n" id="nAlarm">0</div><div class="l">🔔 Mit Ton</div></button>
-    <button class="stat silent" data-f="silent"><div class="n" id="nSilent">0</div><div class="l">🔕 Ohne Ton</div></button>
-    <button class="stat service" data-f="service"><div class="n" id="nService">0</div><div class="l">Mein Kunde, anderer Service</div></button>
-    <button class="stat" data-f="customer"><div class="n" id="nCustomer">0</div><div class="l">Nicht mein Kunde</div></button>
+    <button class="stat active" data-f="all"><div class="n" id="nAll">0</div><div class="l">Open total</div></button>
+    <button class="stat alarm" data-f="alarm"><div class="n" id="nAlarm">0</div><div class="l">🔔 Loud</div></button>
+    <button class="stat silent" data-f="silent"><div class="n" id="nSilent">0</div><div class="l">🔕 Silent</div></button>
+    <button class="stat service" data-f="service"><div class="n" id="nService">0</div><div class="l">My customer, other service</div></button>
+    <button class="stat" data-f="customer"><div class="n" id="nCustomer">0</div><div class="l">Not my customer</div></button>
   </div>
 
-  <h2 id="mineTitle">Meine Kunden – offen, noch kein Ack</h2>
+  <h2 id="mineTitle">My customers – open, not acked yet</h2>
   <div class="card wrap"><table>
-    <thead><tr><th>Seit</th><th>Benachrichtigung</th><th>Incident</th><th class="hide-sm">Kunde</th><th></th></tr></thead>
+    <thead><tr><th>Since</th><th>Notification</th><th>Incident</th><th class="hide-sm">Customer</th><th></th></tr></thead>
     <tbody id="mine"></tbody>
   </table></div>
 
   <h2 id="ackedTitle">Acknowledged</h2>
   <div class="card wrap"><table>
-    <thead><tr><th>Ack seit</th><th>Incident</th><th>Ack von</th><th class="hide-sm">Kunde</th><th></th></tr></thead>
+    <thead><tr><th>Acked at</th><th>Incident</th><th>Acked by</th><th class="hide-sm">Customer</th><th></th></tr></thead>
     <tbody id="acked"></tbody>
   </table></div>
 
   <div id="othersBox">
-  <h2 id="othersTitle">Offene Incidents anderer Kunden</h2>
+  <h2 id="othersTitle">Open incidents of other customers</h2>
   <div class="card wrap"><table>
-    <thead><tr><th>Seit</th><th>Benachrichtigung</th><th>Incident</th><th class="hide-sm">Kunde</th><th></th></tr></thead>
+    <thead><tr><th>Since</th><th>Notification</th><th>Incident</th><th class="hide-sm">Customer</th><th></th></tr></thead>
     <tbody id="incidents"></tbody>
   </table></div>
   </div>
 
-  <h2>Verlauf</h2>
+  <h2>History</h2>
   <div class="card wrap"><table>
-    <thead><tr><th>Zeit</th><th>Was</th><th>Details</th></tr></thead>
+    <thead><tr><th>Time</th><th>What</th><th>Details</th></tr></thead>
     <tbody id="events"></tbody>
   </table></div>
 </main>
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script>
-  const LABEL = { alarm: "🔔 Mit Ton", silent: "🔕 Ohne Ton", service: "Anderer Service", customer: "Nicht mein Kunde",
-                  pending: "Fehler, neuer Versuch", error: "Fehler", info: "Info",
+  const LABEL = { alarm: "🔔 Loud", silent: "🔕 Silent", service: "Other service", customer: "Not my customer",
+                  pending: "Error, retrying", error: "Error", info: "Info",
                   ack: "✓ Acknowledged", resolve: "✓ Resolved" };
   let filter = "all";
   let lastData = null;
@@ -234,18 +234,18 @@
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const badge = k => `<span class="badge b-${k}">${LABEL[k] || k}</span>`;
   const link = (title, url) => url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(title)}</a>` : esc(title);
-  // Wer acknowledged hat; "zugewiesen" nur, wenn es jemand anderes ist
+  // Who acknowledged; "assigned" only if it is someone else
   const ackedBy = i => {
     const by = (i.acked_by || []).map(a => `<b class="${a.me ? "me" : ""}">${esc(a.name)}</b>`);
     const names = new Set((i.acked_by || []).map(a => a.name));
     const other = (i.assigned || []).filter(n => !names.has(n));
     return (by.join(", ") || "?") +
-      (other.length ? `<div class="svc">zugewiesen: ${esc(other.join(", "))}</div>` : "");
+      (other.length ? `<div class="svc">assigned: ${esc(other.join(", "))}</div>` : "");
   };
   const fmtTime = iso => {
     if (!iso) return "–";
     const d = new Date(iso);
-    return isNaN(d) ? esc(iso) : d.toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    return isNaN(d) ? esc(iso) : d.toLocaleString("en-GB", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
   };
 
   document.querySelectorAll(".stat").forEach(b => b.addEventListener("click", () => {
@@ -265,11 +265,11 @@
 
     document.getElementById("lastPoll").textContent = d.last_poll ? d.last_poll.slice(11) : "–";
     document.getElementById("started").textContent = d.started || "–";
-    document.getElementById("svcFilter").textContent = (d.service_filter || []).join(", ") || "alle Services";
+    document.getElementById("svcFilter").textContent = (d.service_filter || []).join(", ") || "all services";
     document.getElementById("customers").innerHTML =
       (d.customers || []).map(c => `<span class="chip">${esc(c)}${d.customers_editable
-        ? `<button class="chip-x" data-name="${esc(c)}" title="${esc(c)} entfernen">×</button>` : ""}</span>`).join("")
-      || "<span>keine</span>";
+        ? `<button class="chip-x" data-name="${esc(c)}" title="Remove ${esc(c)}">×</button>` : ""}</span>`).join("")
+      || "<span>none</span>";
     document.getElementById("addCustomer").hidden = !d.customers_editable;
     document.getElementById("pawLink").hidden = !d.paw;
 
@@ -278,27 +278,27 @@
     const sh = d.shift;
     document.getElementById("shiftRow").hidden = !sh;
     if (sh) {
-      const end = sh.end ? new Date(sh.end).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : null;
-      document.getElementById("shift").textContent = sh.schedules.join(", ") + (end ? ` bis ${end}` : "");
-      document.getElementById("override").textContent = `On-Call ab jetzt an ${d.override_user} übergeben`;
+      const end = sh.end ? new Date(sh.end).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : null;
+      document.getElementById("shift").textContent = sh.schedules.join(", ") + (end ? ` until ${end}` : "");
+      document.getElementById("override").textContent = `Hand off on-call to ${d.override_user}`;
     }
-    const lasEnd = d.las?.until ? new Date(d.las.until).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : null;
-    document.getElementById("las").textContent = !d.las ? "aus"
-      : d.las.mode === "schicht" ? "an (ohne Ende)" : `an (LAS bis ${lasEnd})`;
+    const lasEnd = d.las?.until ? new Date(d.las.until).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : null;
+    document.getElementById("las").textContent = !d.las ? "off"
+      : d.las.mode === "shift" ? "on (no end)" : `on (LAS until ${lasEnd})`;
     const lasBtn = document.getElementById("lasToggle");
-    lasBtn.textContent = d.las ? "Ausschalten"
-      : `LAS an bis ${String(d.settings?.LAS_END_HOUR ?? 18).padStart(2, "0")}:00`;
+    lasBtn.textContent = d.las ? "Turn off"
+      : `LAS on until ${String(d.settings?.LAS_END_HOUR ?? 18).padStart(2, "0")}:00`;
     lasBtn.dataset.on = d.las ? "1" : "";
     document.getElementById("shiftPush").hidden = !!d.las;
     const ov = d.overrides || [];
     document.getElementById("takeBackRow").hidden = !ov.length;
-    document.getElementById("handedOver").textContent = `an ${d.override_user}: ` + ov.map(o => `${o.schedule} bis ${
-      new Date(o.end).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}`).join(", ");
+    document.getElementById("handedOver").textContent = `to ${d.override_user}: ` + ov.map(o => `${o.schedule} until ${
+      new Date(o.end).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`).join(", ");
 
     const dot = document.getElementById("dot"), st = document.getElementById("status");
-    if (d.last_error) { dot.className = "dot err"; st.textContent = "Filter läuft – Fehler: " + d.last_error; }
-    else if (d.paused) { dot.className = "dot"; st.textContent = `Filter pausiert (${d.paused})`; }
-    else { dot.className = "dot on"; st.textContent = "Filter läuft"; }
+    if (d.last_error) { dot.className = "dot err"; st.textContent = "Filter running – error: " + d.last_error; }
+    else if (d.paused) { dot.className = "dot"; st.textContent = `Filter paused (${d.paused})`; }
+    else { dot.className = "dot on"; st.textContent = "Filter running"; }
 
     const rows = inc.filter(i => filter === "all" || i.decision === filter);
     const incRow = i => `
@@ -306,32 +306,32 @@
         <td class="time">${fmtTime(i.created_at)}</td>
         <td>${badge(i.decision)}</td>
         <td>${link(i.title, i.url)}<div class="svc">${esc(i.service)}${i.assigned_me
-          ? ' · <b class="me">dir zugewiesen</b>' : ""}</div></td>
+          ? ' · <b class="me">assigned to you</b>' : ""}</div></td>
         <td class="hide-sm">${esc(i.customer || "")}</td>
         <td><div class="actions">
           <button class="ack" data-action="ack" data-id="${esc(i.id)}">Ack</button>
           <button class="ack resolve" data-action="resolve" data-id="${esc(i.id)}">Resolve</button>
         </div></td>
       </tr>`;
-    const inCat = filter !== "all" ? " in dieser Kategorie" : "";
+    const inCat = filter !== "all" ? " in this category" : "";
     const isMine = i => i.customer || d.all_mine;
-    // Mir zugewiesene zuerst, sonst neueste zuerst (kommt so vom Server)
+    // Assigned to me first, otherwise newest first (as sent by the server)
     const mine = rows.filter(isMine).sort((a, b) => !!b.assigned_me - !!a.assigned_me);
     const others = rows.filter(i => !isMine(i));
     document.getElementById("mineTitle").textContent =
-      `${d.all_mine ? "Alle Kunden" : "Meine Kunden"} – offen, noch kein Ack (${mine.length})`;
+      `${d.all_mine ? "All customers" : "My customers"} – open, not acked yet (${mine.length})`;
     document.getElementById("othersBox").hidden = !!d.all_mine;
     document.getElementById("mine").innerHTML = mine.length ? mine.map(incRow).join("")
-      : `<tr><td colspan="5" class="empty">Nichts offen${inCat}.</td></tr>`;
+      : `<tr><td colspan="5" class="empty">Nothing open${inCat}.</td></tr>`;
     document.getElementById("incidents").innerHTML = others.length ? others.map(incRow).join("")
-      : `<tr><td colspan="5" class="empty">Nichts offen${inCat}.</td></tr>`;
-    document.getElementById("othersTitle").textContent = `Offene Incidents anderer Kunden (${others.length})`;
+      : `<tr><td colspan="5" class="empty">Nothing open${inCat}.</td></tr>`;
+    document.getElementById("othersTitle").textContent = `Open incidents of other customers (${others.length})`;
 
-    // Eigene zuerst, sonst nach Ack-Zeit (kommt so vom Server)
+    // Mine first, otherwise by ack time (as sent by the server)
     const acked = [...(d.acked || [])].sort((a, b) => b.mine - a.mine);
     document.getElementById("ackedTitle").textContent =
-      (!d.acked_mine ? "Acknowledged (alle – eigener PagerDuty-User unbekannt)"
-        : d.all_mine ? "Acknowledged – alle Kunden" : "Acknowledged – meine Kunden und von mir") +
+      (!d.acked_mine ? "Acknowledged (all – own PagerDuty user unknown)"
+        : d.all_mine ? "Acknowledged – all customers" : "Acknowledged – my customers and by me") +
       ` (${acked.length})`;
     document.getElementById("acked").innerHTML = acked.length ? acked.map(i => `
       <tr>
@@ -342,7 +342,7 @@
         <td><div class="actions">
           <button class="ack resolve" data-action="resolve" data-id="${esc(i.id)}">Resolve</button>
         </div></td>
-      </tr>`).join("") : `<tr><td colspan="5" class="empty">Nichts acknowledged.</td></tr>`;
+      </tr>`).join("") : `<tr><td colspan="5" class="empty">Nothing acknowledged.</td></tr>`;
 
     const ev = d.events || [];
     document.getElementById("events").innerHTML = ev.length ? ev.map(e => `
@@ -350,7 +350,7 @@
         <td class="time">${esc(e.time.slice(11))}</td>
         <td>${badge(e.kind)}</td>
         <td>${e.title !== undefined ? link(e.title, e.url) + `<div class="svc">${esc(e.service)}${e.kind === "error" ? " · " + esc(e.text) : ""}</div>` : esc(e.text)}</td>
-      </tr>`).join("") : `<tr><td colspan="3" class="empty">Noch nichts passiert.</td></tr>`;
+      </tr>`).join("") : `<tr><td colspan="3" class="empty">Nothing happened yet.</td></tr>`;
   }
 
   let toastTimer;
@@ -385,12 +385,12 @@
       refresh();
     } catch (e) {
       btn.closest(".actions").querySelectorAll("button").forEach(b => { b.disabled = false; });
-      toast(name + " fehlgeschlagen: " + e.message, true);
+      toast(name + " failed: " + e.message, true);
     }
   };
-  [["override", () => "/api/override", "Übergeben"], ["takeBack", () => "/api/override/remove", "Zurücknehmen"],
-   ["lasToggle", btn => btn.dataset.on ? "/api/las/stop" : "/api/las/start", "PagerDuty-Benachrichtigung"],
-   ["shiftPush", () => "/api/schicht/start", "PagerDuty-Benachrichtigung"]]
+  [["override", () => "/api/override", "Hand off"], ["takeBack", () => "/api/override/remove", "Take back"],
+   ["lasToggle", btn => btn.dataset.on ? "/api/las/stop" : "/api/las/start", "PagerDuty notifications"],
+   ["shiftPush", () => "/api/shift/start", "PagerDuty notifications"]]
     .forEach(([id, path, label]) => document.getElementById(id).addEventListener("click", async ev => {
       const btn = ev.currentTarget;
       btn.disabled = true;
@@ -405,12 +405,12 @@
         toast("✓ " + res.text);
         refresh();
       } catch (e) {
-        toast(label + " fehlgeschlagen: " + e.message, true);
+        toast(label + " failed: " + e.message, true);
       } finally {
         btn.disabled = false;
       }
     }));
-  // Formular nur fuellen, solange nichts ungespeichert geaendert wurde
+  // Only fill the form while there are no unsaved changes
   const settingsForm = document.getElementById("settings");
   let settingsDirty = false;
   function fillSettings(s) {
@@ -423,7 +423,7 @@
     }
     markContacts();
   }
-  // Auswahl der PagerDuty-Kontakte fuer LAS/Schicht, gespeichert als IDs in LAS_CONTACTS
+  // PagerDuty contacts for LAS/shift, saved as IDs in LAS_CONTACTS
   const contactsInput = settingsForm.elements.LAS_CONTACTS;
   const contactList = document.getElementById("contactList");
   function markContacts() {
@@ -438,10 +438,10 @@
       contactList.classList.toggle("svc", !res.contacts.length);
       contactList.innerHTML = res.contacts.map(c => `<label class="check"><input type="checkbox" data-contact="${esc(c.id)}">
         ${esc(c.kind)}: ${esc(c.label)}${c.address && c.kind !== "Push" ? ` (${esc(c.address)})` : ""}</label>`).join("")
-        || "Keine Kontakte in PagerDuty gefunden";
+        || "No contacts found in PagerDuty";
       markContacts();
     } catch (e) {
-      contactList.textContent = "Kontakte nicht geladen: " + e.message;
+      contactList.textContent = "Contacts not loaded: " + e.message;
     }
   }
   contactList.addEventListener("change", () => {
@@ -468,10 +468,10 @@
       const res = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(res.error || "HTTP " + r.status);
       settingsDirty = false;
-      toast("✓ Einstellungen gespeichert");
+      toast("✓ Settings saved");
       refresh();
     } catch (e) {
-      toast("Speichern fehlgeschlagen: " + e.message, true);
+      toast("Save failed: " + e.message, true);
     } finally {
       btn.disabled = false;
     }
@@ -494,10 +494,10 @@
     try {
       await editCustomer("add", name);
       input.value = "";
-      toast("✓ " + name + " hinzugefügt");
+      toast("✓ " + name + " added");
       refresh();
     } catch (e) {
-      toast("Hinzufügen fehlgeschlagen: " + e.message, true);
+      toast("Add failed: " + e.message, true);
     }
   });
   document.getElementById("customers").addEventListener("click", async ev => {
@@ -506,11 +506,11 @@
     btn.disabled = true;
     try {
       await editCustomer("remove", btn.dataset.name);
-      toast("✓ " + btn.dataset.name + " entfernt");
+      toast("✓ " + btn.dataset.name + " removed");
       refresh();
     } catch (e) {
       btn.disabled = false;
-      toast("Entfernen fehlgeschlagen: " + e.message, true);
+      toast("Remove failed: " + e.message, true);
     }
   });
   document.getElementById("mine").addEventListener("click", onAction);
@@ -524,7 +524,7 @@
       render(lastData);
     } catch {
       document.getElementById("dot").className = "dot err";
-      document.getElementById("status").textContent = "Filter läuft nicht";
+      document.getElementById("status").textContent = "Filter not running";
     }
   }
   refresh();

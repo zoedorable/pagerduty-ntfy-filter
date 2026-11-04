@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -66,27 +66,27 @@
 <header>
   <span class="dot" id="dot"></span>
   <h1>PD-Filter</h1>
-  <span class="status" id="status">verbinde…</span>
-  <a class="full" href="/" target="_blank" rel="noopener">Volle Ansicht ↗</a>
+  <span class="status" id="status">connecting…</span>
+  <a class="full" href="/" target="_blank" rel="noopener">Full view ↗</a>
 </header>
 <div class="shift" id="shiftRow" hidden>
   <span id="shift"></span>
-  <button id="override">Übergeben</button>
+  <button id="override">Hand off</button>
 </div>
 <div class="shift">
-  <span id="las">PagerDuty aus</span>
-  <button id="lasToggle">LAS an</button>
-  <button id="shiftPush">Ohne Ende</button>
+  <span id="las">PagerDuty off</span>
+  <button id="lasToggle">LAS on</button>
+  <button id="shiftPush">No end</button>
 </div>
 <div class="shift" id="takeBackRow" hidden>
   <span id="handedOver"></span>
-  <button id="takeBack">Zurücknehmen</button>
+  <button id="takeBack">Take back</button>
 </div>
 <main>
-  <h2 id="mineTitle">Meine Kunden</h2>
+  <h2 id="mineTitle">My customers</h2>
   <div id="mine"></div>
   <div id="ackedBox">
-    <h2 id="ackedTitle">Von mir acknowledged</h2>
+    <h2 id="ackedTitle">Acknowledged by me</h2>
     <div id="acked"></div>
   </div>
 </main>
@@ -98,7 +98,7 @@
   const link = (title, url) => url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(title)}</a>` : esc(title);
   const hhmm = iso => {
     const d = new Date(iso);
-    return isNaN(d) ? "" : d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+    return isNaN(d) ? "" : d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
   };
 
   function item(i, buttons, time, by) {
@@ -106,9 +106,9 @@
     return `<div class="item${alarm ? " alarm" : ""}">
       <div class="top">${alarm ? '<span class="pulse"></span>' : ""}
         <span class="cust">${esc(i.customer || "")}</span><span>${esc(i.service)}</span>${i.assigned_me
-          ? '<b class="me">dir zugewiesen</b>' : ""}
+          ? '<b class="me">assigned to you</b>' : ""}
         <span class="time">${hhmm(time)}</span></div>
-      <div class="title">${link(i.title, i.url)}</div>${by ? `<div class="by">Ack von ${by}</div>` : ""}
+      <div class="title">${link(i.title, i.url)}</div>${by ? `<div class="by">Acked by ${by}</div>` : ""}
       <div class="actions">${buttons.map(([action, label]) =>
         `<button class="${action}" data-action="${action}" data-id="${esc(i.id)}">${label}</button>`).join("")}</div>
     </div>`;
@@ -116,33 +116,33 @@
 
   function render(d) {
     const dot = document.getElementById("dot"), st = document.getElementById("status");
-    if (d.last_error) { dot.className = "dot err"; st.textContent = "Fehler: " + d.last_error; }
-    else if (d.paused) { dot.className = "dot"; st.textContent = "Filter pausiert – " + d.paused; }
-    else { dot.className = "dot on"; st.textContent = "Filter läuft · " + (d.last_poll || "").slice(11, 16); }
+    if (d.last_error) { dot.className = "dot err"; st.textContent = "Error: " + d.last_error; }
+    else if (d.paused) { dot.className = "dot"; st.textContent = "Filter paused – " + d.paused; }
+    else { dot.className = "dot on"; st.textContent = "Filter running · " + (d.last_poll || "").slice(11, 16); }
 
     const sh = d.shift;
     document.getElementById("shiftRow").hidden = !sh;
     if (sh) {
-      document.getElementById("shift").textContent = "On-Call" + (sh.end ? " bis " + hhmm(sh.end) : "");
-      document.getElementById("override").title = `On-Call ab jetzt an ${d.override_user} übergeben`;
+      document.getElementById("shift").textContent = "On call" + (sh.end ? " until " + hhmm(sh.end) : "");
+      document.getElementById("override").title = `Hand off on-call to ${d.override_user} from now`;
     }
-    document.getElementById("las").textContent = !d.las ? "PagerDuty aus"
-      : d.las.mode === "schicht" ? "PagerDuty an (ohne Ende)" : "PagerDuty an (LAS bis " + hhmm(d.las.until) + ")";
+    document.getElementById("las").textContent = !d.las ? "PagerDuty off"
+      : d.las.mode === "shift" ? "PagerDuty on (no end)" : "PagerDuty on (LAS until " + hhmm(d.las.until) + ")";
     const lasBtn = document.getElementById("lasToggle");
-    lasBtn.textContent = d.las ? "Ausschalten" : "LAS an";
+    lasBtn.textContent = d.las ? "Turn off" : "LAS on";
     lasBtn.dataset.on = d.las ? "1" : "";
     document.getElementById("shiftPush").hidden = !!d.las;
     const ov = d.overrides || [];
     document.getElementById("takeBackRow").hidden = !ov.length;
     document.getElementById("handedOver").textContent = ov.length
-      ? `Übergeben an ${d.override_user} bis ` + hhmm(ov.map(o => o.end).sort().pop()) : "";
+      ? `Handed off to ${d.override_user} until ` + hhmm(ov.map(o => o.end).sort().pop()) : "";
 
     const mine = (d.incidents || []).filter(i => i.customer || d.all_mine)
       .sort((a, b) => !!b.assigned_me - !!a.assigned_me || (b.decision === "alarm") - (a.decision === "alarm"));
-    document.getElementById("mineTitle").textContent = `${d.all_mine ? "Alle Kunden" : "Meine Kunden"} · offen (${mine.length})`;
+    document.getElementById("mineTitle").textContent = `${d.all_mine ? "All customers" : "My customers"} · open (${mine.length})`;
     document.getElementById("mine").innerHTML = mine.length
       ? mine.map(i => item(i, [["ack", "Ack"], ["resolve", "Resolve"]], i.created_at)).join("")
-      : '<div class="empty">Alles ruhig ✓</div>';
+      : '<div class="empty">All quiet ✓</div>';
 
     const acked = [...(d.acked || [])].sort((a, b) => b.mine - a.mine);
     document.getElementById("ackedBox").hidden = !acked.length;
@@ -182,13 +182,13 @@
       refresh();
     } catch (e) {
       btn.parentElement.querySelectorAll("button").forEach(b => { b.disabled = false; });
-      toast((action === "resolve" ? "Resolve" : "Ack") + " fehlgeschlagen: " + e.message, true);
+      toast((action === "resolve" ? "Resolve" : "Ack") + " failed: " + e.message, true);
     }
   });
 
-  [["override", () => "/api/override", "Übergeben"], ["takeBack", () => "/api/override/remove", "Zurücknehmen"],
+  [["override", () => "/api/override", "Hand off"], ["takeBack", () => "/api/override/remove", "Take back"],
    ["lasToggle", btn => btn.dataset.on ? "/api/las/stop" : "/api/las/start", "PagerDuty"],
-   ["shiftPush", () => "/api/schicht/start", "PagerDuty"]]
+   ["shiftPush", () => "/api/shift/start", "PagerDuty"]]
     .forEach(([id, path, label]) => document.getElementById(id).addEventListener("click", async ev => {
       const btn = ev.currentTarget;
       btn.disabled = true;
@@ -197,7 +197,7 @@
         toast("✓ " + res.text);
         refresh();
       } catch (e) {
-        toast(label + " fehlgeschlagen: " + e.message, true);
+        toast(label + " failed: " + e.message, true);
       } finally {
         btn.disabled = false;
       }
@@ -209,7 +209,7 @@
       render(await r.json());
     } catch {
       document.getElementById("dot").className = "dot err";
-      document.getElementById("status").textContent = "Filter läuft nicht";
+      document.getElementById("status").textContent = "Filter not running";
     }
   }
   refresh();

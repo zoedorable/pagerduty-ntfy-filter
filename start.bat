@@ -1,18 +1,18 @@
 @echo off
-REM PagerDuty-Filter starten (Windows). Laeuft in einem minimierten Fenster "PD-Filter".
+REM Start the PagerDuty filter (Windows). Runs in a minimized window "PD-Filter".
 cd /d "%~dp0"
 tasklist /V /FI "WINDOWTITLE eq PD-Filter*" | find /I "PD-Filter" >nul
 if not errorlevel 1 (
-  echo Laeuft schon.
+  echo Already running.
   timeout /t 3 >nul
   exit /b
 )
-REM Eigene Python-Umgebung im Ordner (einmalig), damit requests sicher da ist
+REM Own Python environment in this folder (one-time), so requests is always available
 if not exist ".venv\Scripts\python.exe" (
-  echo Richte Python-Umgebung ein ^(einmalig^)...
+  echo Setting up Python environment ^(one-time^)...
   python -m venv .venv 2>nul || py -3 -m venv .venv
   if not exist ".venv\Scripts\python.exe" (
-    echo venv konnte nicht erstellt werden. Ist Python installiert?
+    echo Could not create venv. Is Python installed?
     pause
     exit /b 1
   )
@@ -21,11 +21,11 @@ if not exist ".venv\Scripts\python.exe" (
 if errorlevel 1 (
   ".venv\Scripts\python.exe" -m pip install --quiet requests
   if errorlevel 1 (
-    echo Installation von requests fehlgeschlagen.
+    echo Installing requests failed.
     pause
     exit /b 1
   )
 )
 start "PD-Filter" /min cmd /c ".venv\Scripts\python.exe pd_filter.py >> pd_filter.log 2>&1"
-echo AN. Log: pd_filter.log  ^|  Live-Ansicht: ansicht.bat
+echo ON. Log: pd_filter.log  ^|  Dashboard: view.bat
 timeout /t 3 >nul
