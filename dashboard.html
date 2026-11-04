@@ -99,6 +99,13 @@
            box-shadow: 0 4px 16px rgba(0,0,0,.2); opacity: 0; pointer-events: none; transition: opacity .2s; }
   #toast.show { opacity: 1; }
   #toast.err { background: var(--err); }
+  th.sel, td.sel { width: 1%; padding-right: 0; }
+  td.sel input, th.sel input { cursor: pointer; margin: 2px 0 0; }
+  tr.picked td { background: color-mix(in srgb, var(--info) 8%, transparent); }
+  #bulk { position: fixed; left: 50%; bottom: 72px; transform: translateX(-50%); display: flex; gap: 8px;
+          align-items: center; padding: 8px 12px; border-radius: 10px; background: var(--panel);
+          border: 1px solid var(--line); box-shadow: 0 4px 16px rgba(0,0,0,.18); z-index: 5; }
+  #bulkCount { font-weight: 600; margin-right: 4px; white-space: nowrap; }
   @media (max-width: 640px) { .hide-sm { display: none; } }
 </style>
 </head>
@@ -197,20 +204,20 @@
 
   <h2 id="mineTitle">My customers – open, not acked yet</h2>
   <div class="card wrap"><table>
-    <thead><tr><th>Since</th><th>Notification</th><th>Incident</th><th class="hide-sm">Customer</th><th></th></tr></thead>
+    <thead><tr><th class="sel"><input type="checkbox" class="sel-all" data-table="mine" title="Select all"></th><th>Since</th><th>Notification</th><th>Incident</th><th class="hide-sm">Customer</th><th></th></tr></thead>
     <tbody id="mine"></tbody>
   </table></div>
 
   <h2 id="ackedTitle">Acknowledged</h2>
   <div class="card wrap"><table>
-    <thead><tr><th>Acked at</th><th>Incident</th><th>Acked by</th><th class="hide-sm">Customer</th><th></th></tr></thead>
+    <thead><tr><th class="sel"><input type="checkbox" class="sel-all" data-table="acked" title="Select all"></th><th>Acked at</th><th>Incident</th><th>Acked by</th><th class="hide-sm">Customer</th><th></th></tr></thead>
     <tbody id="acked"></tbody>
   </table></div>
 
   <div id="othersBox">
   <h2 id="othersTitle">Open incidents of other customers</h2>
   <div class="card wrap"><table>
-    <thead><tr><th>Since</th><th>Notification</th><th>Incident</th><th class="hide-sm">Customer</th><th></th></tr></thead>
+    <thead><tr><th class="sel"><input type="checkbox" class="sel-all" data-table="incidents" title="Select all"></th><th>Since</th><th>Notification</th><th>Incident</th><th class="hide-sm">Customer</th><th></th></tr></thead>
     <tbody id="incidents"></tbody>
   </table></div>
   </div>
@@ -221,6 +228,12 @@
     <tbody id="events"></tbody>
   </table></div>
 </main>
+<div id="bulk" hidden>
+  <span id="bulkCount"></span>
+  <button class="ack" id="bulkAck">Ack</button>
+  <button class="ack resolve" id="bulkResolve">Resolve</button>
+  <button class="ack" id="bulkClear">Clear selection</button>
+</div>
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script>
@@ -229,6 +242,9 @@
                   ack: "✓ Acknowledged", resolve: "✓ Resolved" };
   let filter = "all";
   let lastData = null;
+  const selected = new Set();   // selected incident IDs, kept across re-renders
+  const selBox = i => `<td class="sel"><input type="checkbox" class="sel-one" data-id="${esc(i.id)}"${
+    selected.has(i.id) ? " checked" : ""}></td>`;
 
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -302,7 +318,8 @@
 
     const rows = inc.filter(i => filter === "all" || i.decision === filter);
     const incRow = i => `
-      <tr class="${i.decision === "alarm" ? "row-alarm" : ""}">
+      <tr class="${i.decision === "alarm" ? "row-alarm" : ""}${selected.has(i.id) ? " picked" : ""}">
+        ${selBox(i)}
         <td class="time">${fmtTime(i.created_at)}</td>
         <td>${badge(i.decision)}</td>
         <td>${link(i.title, i.url)}<div class="svc">${esc(i.service)}${i.assigned_me
@@ -322,9 +339,9 @@
       `${d.all_mine ? "All customers" : "My customers"} – open, not acked yet (${mine.length})`;
     document.getElementById("othersBox").hidden = !!d.all_mine;
     document.getElementById("mine").innerHTML = mine.length ? mine.map(incRow).join("")
-      : `<tr><td colspan="5" class="empty">Nothing open${inCat}.</td></tr>`;
+      : `<tr><td colspan="6" class="empty">Nothing open${inCat}.</td></tr>`;
     document.getElementById("incidents").innerHTML = others.length ? others.map(incRow).join("")
-      : `<tr><td colspan="5" class="empty">Nothing open${inCat}.</td></tr>`;
+      : `<tr><td colspan="6" class="empty">Nothing open${inCat}.</td></tr>`;
     document.getElementById("othersTitle").textContent = `Open incidents of other customers (${others.length})`;
 
     // Mine first, otherwise by ack time (as sent by the server)
@@ -334,15 +351,22 @@
         : d.all_mine ? "Acknowledged – all customers" : "Acknowledged – my customers and by me") +
       ` (${acked.length})`;
     document.getElementById("acked").innerHTML = acked.length ? acked.map(i => `
-      <tr>
+      <tr class="${selected.has(i.id) ? "picked" : ""}">
+        ${selBox(i)}
         <td class="time">${fmtTime(i.acked_at)}</td>
         <td>${link(i.title, i.url)}<div class="svc">${esc(i.service)}</div></td>
         <td>${ackedBy(i)}</td>
         <td class="hide-sm">${esc(i.customer || "")}</td>
         <td><div class="actions">
+          ${i.mine ? "" : `<button class="ack" data-action="ack" data-id="${esc(i.id)}" title="Acknowledge yourself as well">Ack</button>`}
           <button class="ack resolve" data-action="resolve" data-id="${esc(i.id)}">Resolve</button>
         </div></td>
-      </tr>`).join("") : `<tr><td colspan="5" class="empty">Nothing acknowledged.</td></tr>`;
+      </tr>`).join("") : `<tr><td colspan="6" class="empty">Nothing acknowledged.</td></tr>`;
+
+    // Selection: keep only IDs that still exist; update header checkboxes and the bar
+    const present = new Set([...inc, ...acked].map(i => i.id));
+    [...selected].forEach(id => { if (!present.has(id)) selected.delete(id); });
+    updateSelection();
 
     const ev = d.events || [];
     document.getElementById("events").innerHTML = ev.length ? ev.map(e => `
@@ -362,6 +386,85 @@
     toastTimer = setTimeout(() => { t.className = ""; }, isError ? 7000 : 3000);
   }
 
+  // Ack works for open incidents and for ones acknowledged by others (not my own)
+  const canAck = () => new Set([...(lastData?.incidents || []), ...(lastData?.acked || []).filter(i => !i.mine)]
+    .map(i => i.id));
+  function updateSelection() {
+    document.querySelectorAll(".sel-all").forEach(all => {
+      const boxes = [...document.getElementById(all.dataset.table).querySelectorAll(".sel-one")];
+      const n = boxes.filter(b => b.checked).length;
+      all.checked = boxes.length > 0 && n === boxes.length;
+      all.indeterminate = n > 0 && n < boxes.length;
+      all.disabled = !boxes.length;
+    });
+    const ackable = [...selected].filter(id => canAck().has(id)).length;
+    document.getElementById("bulk").hidden = !selected.size;
+    document.getElementById("bulkCount").textContent = `${selected.size} selected`;
+    const ackBtn = document.getElementById("bulkAck");
+    ackBtn.textContent = `Ack (${ackable})`;
+    ackBtn.disabled = !ackable;
+    document.getElementById("bulkResolve").textContent = `Resolve (${selected.size})`;
+  }
+  ["mine", "acked", "incidents"].forEach(id => document.getElementById(id).addEventListener("change", ev => {
+    const cb = ev.target.closest(".sel-one");
+    if (!cb) return;
+    cb.checked ? selected.add(cb.dataset.id) : selected.delete(cb.dataset.id);
+    cb.closest("tr").classList.toggle("picked", cb.checked);
+    updateSelection();
+  }));
+  document.querySelectorAll(".sel-all").forEach(all => all.addEventListener("change", () => {
+    document.getElementById(all.dataset.table).querySelectorAll(".sel-one").forEach(cb => {
+      cb.checked = all.checked;
+      all.checked ? selected.add(cb.dataset.id) : selected.delete(cb.dataset.id);
+      cb.closest("tr").classList.toggle("picked", all.checked);
+    });
+    updateSelection();
+  }));
+  document.getElementById("bulkClear").addEventListener("click", () => {
+    selected.clear();
+    if (lastData) render(lastData);
+  });
+
+  // Process several incidents through the normal endpoints (3 at a time)
+  async function bulk(action) {
+    const ackIds = canAck();
+    const ids = [...selected].filter(id => action === "resolve" || ackIds.has(id));
+    if (!ids.length) return;
+    const btns = document.querySelectorAll("#bulk button");
+    btns.forEach(b => { b.disabled = true; });
+    const errors = [];
+    const queue = [...ids];
+    const worker = async () => {
+      for (let id; (id = queue.shift()); ) {
+        try {
+          const r = await fetch("/api/" + action, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-PD-Filter": "1" },
+            body: JSON.stringify({ id }),
+          });
+          const res = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(res.error || "HTTP " + r.status);
+          selected.delete(id);
+          if (lastData) {
+            lastData.incidents = lastData.incidents.filter(i => i.id !== id);
+            if (action === "resolve") lastData.acked = (lastData.acked || []).filter(i => i.id !== id);
+          }
+        } catch (e) {
+          errors.push(e.message);
+        }
+      }
+    };
+    await Promise.all([worker(), worker(), worker()]);
+    btns.forEach(b => { b.disabled = false; });
+    const done = ids.length - errors.length;
+    const verb = action === "resolve" ? "resolved" : "acknowledged";
+    if (errors.length) toast(`${done} of ${ids.length} ${verb}, errors: ${[...new Set(errors)].join("; ")}`, true);
+    else toast(`✓ ${done} ${verb}`);
+    refresh();
+  }
+  document.getElementById("bulkAck").addEventListener("click", () => bulk("ack"));
+  document.getElementById("bulkResolve").addEventListener("click", () => bulk("resolve"));
+
   const onAction = async ev => {
     const btn = ev.target.closest("button.ack");
     if (!btn) return;
@@ -379,7 +482,7 @@
       if (!r.ok) throw new Error(res.error || "HTTP " + r.status);
       if (lastData) {
         lastData.incidents = lastData.incidents.filter(i => i.id !== id);
-        lastData.acked = (lastData.acked || []).filter(i => i.id !== id);
+        if (action === "resolve") lastData.acked = (lastData.acked || []).filter(i => i.id !== id);
       }
       toast(action === "resolve" ? "✓ Resolved" : "✓ Acknowledged");
       refresh();

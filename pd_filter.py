@@ -1013,11 +1013,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
         with STATE_LOCK:
             STATE["incidents"] = [i for i in STATE["incidents"] if i["id"] != incident_id]
             STATE["acked"] = [i for i in STATE["acked"] if i["id"] != incident_id]
-            # Show at the top right away, not only after the next poll
+            # Show at the top right away, not only after the next poll. If others had already
+            # acknowledged it, their names stay and I'm added.
             if status == "acknowledged" and inc:
+                by = [a for a in inc.get("acked_by") or [] if not a.get("me")]
                 STATE["acked"].insert(0, {k: inc.get(k) for k in ("id", "title", "service", "url", "customer")}
                                       | {"acked_at": datetime.now(TZ).isoformat(), "mine": True,
-                                         "acked_by": [{"name": MY_USER_NAME or "me", "me": True}], "assigned": []})
+                                         "acked_by": by + [{"name": MY_USER_NAME or "me", "me": True}],
+                                         "assigned": inc.get("assigned") or []})
         if inc:
             add_event(kind, f"✓ {label}",
                       {"title": inc["title"], "service": {"summary": inc["service"]}, "html_url": inc["url"]},

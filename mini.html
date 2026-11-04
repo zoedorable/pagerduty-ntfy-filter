@@ -147,7 +147,7 @@
     const acked = [...(d.acked || [])].sort((a, b) => b.mine - a.mine);
     document.getElementById("ackedBox").hidden = !acked.length;
     document.getElementById("ackedTitle").textContent = `Acknowledged (${acked.length})`;
-    document.getElementById("acked").innerHTML = acked.map(i => item(i, [["resolve", "Resolve"]], i.acked_at,
+    document.getElementById("acked").innerHTML = acked.map(i => item(i, i.mine ? [["resolve", "Resolve"]] : [["ack", "Ack"], ["resolve", "Resolve"]], i.acked_at,
       (i.acked_by || []).map(a => `<b class="${a.me ? "me" : ""}">${esc(a.name)}</b>`).join(", ") || "?")).join("");
   }
 
