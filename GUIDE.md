@@ -115,9 +115,12 @@ your personal API key; with an account key, also enter your PagerDuty email.
 - **Alerts:** no ntfy. A new loud incident plays a sound (only after you clicked
   somewhere on the page once, browser rule), blinks the tab title and shows a toast.
   The favicon shows the number of open incidents of your customers.
-- **LAS and handoff** work the same, but their state is kept in the browser that
-  started them: LAS started on the Mac isn't shown on the PAW and the other way round.
-  LAS ends automatically only while the page is open, otherwise when it's opened next.
+- **Handoff** is read live from PagerDuty (overrides on your schedules to the handoff
+  user), so a handoff made on the Mac shows on the PAW and can be taken back there, and
+  the other way round.
+- **LAS** state is kept in the browser that started it: LAS started on the Mac isn't
+  shown on the PAW and the other way round. LAS ends automatically only while the page
+  is open, otherwise when it's opened next.
 - On the Mac you can test this mode with `http://localhost:8790/?direct=1`.
 
 ## 4. What happens when

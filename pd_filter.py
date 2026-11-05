@@ -447,8 +447,17 @@ def on_call_now():
             value = True
     _ON_CALL_CACHE.update(at=time.time(), value=value)
     ends = [s["end"] for s in shifts.values() if s["end"]]
+    if MY_USER_ID:
+        try:
+            handoffs = fetch_handoffs(shifts)
+        except (requests.RequestException, KeyError, ValueError) as e:
+            log(f"Handoffs not loaded from PagerDuty, keeping last state: {e}")
+            with STATE_LOCK:
+                handoffs = STATE["overrides"]
+    else:
+        handoffs = load_overrides()
     with STATE_LOCK:
-        STATE["overrides"] = load_overrides()
+        STATE["overrides"] = handoffs
         STATE["shift"] = {"schedules": [s["schedule"] for s in shifts.values()],
                           "end": max(ends) if ends else None} if shifts else None
     return value
@@ -461,6 +470,42 @@ def find_user_id(name_or_email):
     wanted = name_or_email.casefold()
     return next((u["id"] for u in r.json().get("users", [])
                  if wanted in (u.get("name", "").casefold(), u.get("email", "").casefold())), None)
+
+
+_OVERRIDE_USER_ID = {}   # OVERRIDE_USER -> PagerDuty user ID
+
+
+def override_user_id():
+    if OVERRIDE_USER not in _OVERRIDE_USER_ID:
+        _OVERRIDE_USER_ID[OVERRIDE_USER] = find_user_id(OVERRIDE_USER) if OVERRIDE_USER else None
+    return _OVERRIDE_USER_ID[OVERRIDE_USER]
+
+
+def fetch_handoffs(shifts):
+    """Running or upcoming overrides from my schedules to OVERRIDE_USER, read live from PagerDuty,
+    so a handoff made elsewhere (e.g. the console on the PAW) shows up and can be taken back here.
+    My schedules: current shifts, my shifts in the next 14 days and the ones I handed off from here."""
+    target = override_user_id()
+    if not target:
+        return []
+    now = datetime.now(TZ)
+    r = requests.get(f"{PD_API}/oncalls", headers=PD_HEADERS, timeout=20, params={
+        "user_ids[]": MY_USER_ID, "since": now.isoformat(), "until": (now + timedelta(days=14)).isoformat(),
+        "limit": 100})
+    r.raise_for_status()
+    schedules = {o["schedule"]["id"]: o["schedule"].get("summary", "") for o in r.json().get("oncalls", [])
+                 if o.get("schedule")}
+    schedules.update({sid: s["schedule"] for sid, s in shifts.items()})
+    schedules.update({o["schedule_id"]: o["schedule"] for o in load_overrides()})
+    handoffs = []
+    for schedule_id, name in schedules.items():
+        r = requests.get(f"{PD_API}/schedules/{schedule_id}/overrides", headers=PD_HEADERS, timeout=20,
+                         params={"since": now.isoformat(), "until": (now + timedelta(days=1)).isoformat()})
+        r.raise_for_status()
+        for o in r.json().get("overrides", []):
+            if (o.get("user") or {}).get("id") == target and parse_time(o["end"]) > now:
+                handoffs.append({"schedule_id": schedule_id, "schedule": name, "id": o["id"], "end": o["end"]})
+    return handoffs
 
 
 def parse_time(iso):
@@ -537,8 +582,12 @@ def hand_over_shift():
 
 def take_back_shift():
     """Delete my overrides, the shift is mine again. If an override is already running,
-    PagerDuty shortens it to now. Returns (error text or None, description)."""
-    overrides = load_overrides()
+    PagerDuty shortens it to now. Also takes back handoffs made on another machine.
+    Returns (error text or None, description)."""
+    try:
+        overrides = fetch_handoffs(fetch_my_shifts()) if MY_USER_ID else load_overrides()
+    except (requests.RequestException, KeyError, ValueError):
+        overrides = load_overrides()
     if not overrides:
         return "No handoff found", ""
     headers = pd_write_headers()

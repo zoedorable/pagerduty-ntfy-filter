@@ -606,7 +606,7 @@ const Direct = {
   timer: null, paused: null, alertHook: null,
   s: {
     started: null, last_poll: null, last_error: null, paused: null, incidents: [], acked: [], acked_mine: false,
-    shift: null, overrides: [], las: null, customers: [], customers_editable: true, paw: false,
+    shift: null, overrides: null, las: null, customers: [], customers_editable: true, paw: false,
   },
 
   settings() {
@@ -692,6 +692,43 @@ const Direct = {
     return shifts;
   },
 
+  async overrideUserId() {
+    const name = this.settings().OVERRIDE_USER;
+    if (this._overrideUser?.name !== name) {
+      let id = null;
+      if (name) {
+        const r = await this.pd("GET", "/users", { params: { query: name } });
+        const wanted = name.toLowerCase();
+        id = (r.users || []).find(u => [(u.name || "").toLowerCase(), (u.email || "").toLowerCase()].includes(wanted))?.id || null;
+      }
+      this._overrideUser = { name, id };
+    }
+    return this._overrideUser.id;
+  },
+
+  // As fetch_handoffs(): overrides from my schedules to the handoff user, live from PagerDuty,
+  // so a handoff made on another machine shows up and can be taken back here
+  async fetchHandoffs(shifts) {
+    const target = await this.overrideUserId();
+    if (!target) return [];
+    const now = new Date(), iso = d => d.toISOString();
+    const r = await this.pd("GET", "/oncalls", { params: { "user_ids[]": this.me, since: iso(now),
+      until: iso(new Date(+now + 14 * 864e5)), limit: 100 } });
+    const schedules = {};
+    for (const o of r.oncalls || []) if (o.schedule) schedules[o.schedule.id] = o.schedule.summary || "";
+    for (const [id, sh] of Object.entries(shifts)) schedules[id] = sh.schedule;
+    for (const o of this.overrides()) schedules[o.schedule_id] = o.schedule;
+    const out = [];
+    for (const [scheduleId, name] of Object.entries(schedules)) {
+      const res = await this.pd("GET", `/schedules/${scheduleId}/overrides`,
+        { params: { since: iso(now), until: iso(new Date(+now + 864e5)) } });
+      for (const o of res.overrides || []) {
+        if (o.user?.id === target && new Date(o.end) > now) out.push({ schedule_id: scheduleId, schedule: name, id: o.id, end: o.end });
+      }
+    }
+    return out;
+  },
+
   // As on_call_now(): at most once per minute, keep the last known value on errors
   async onCallNow() {
     if (Math.abs(Date.now() - this.onCall.at) < 60000) return this.onCall.value;
@@ -710,7 +747,10 @@ const Direct = {
     Object.assign(this.onCall, { at: Date.now(), value });
     const list = Object.values(shifts), ends = list.map(s => s.end).filter(Boolean).sort();
     this.s.shift = list.length ? { schedules: list.map(s => s.schedule), end: ends.length ? ends[ends.length - 1] : null } : null;
-    this.s.overrides = this.overrides();
+    if (this.me) {
+      try { this.s.overrides = await this.fetchHandoffs(shifts); }
+      catch { /* keep the last state */ }
+    } else this.s.overrides = this.overrides();
     return value;
   },
 
@@ -843,7 +883,7 @@ const Direct = {
   async state() {
     const s = this.settings(), links = store.get("links", {});
     const withLinks = list => list.map(i => ({ ...i, links: links[i.id] || null }));
-    return { ...this.s, incidents: withLinks(this.s.incidents), acked: withLinks(this.s.acked), las: this.lasView(), overrides: this.overrides(), settings: s, override_user: s.OVERRIDE_USER,
+    return { ...this.s, incidents: withLinks(this.s.incidents), acked: withLinks(this.s.acked), las: this.lasView(), overrides: this.s.overrides ?? this.overrides(), settings: s, override_user: s.OVERRIDE_USER,
              service_filter: this.serviceFilter(), poll_seconds: s.POLL_SECONDS, events: this.events(), all_mine: !!this.las() };
   },
   lasView() { const l = this.las(); return l ? { mode: l.mode || "las", until: l.until } : null; },
@@ -895,7 +935,9 @@ const Direct = {
   },
 
   async takeBack() {
-    const overrides = this.overrides();
+    let overrides;
+    try { overrides = this.me ? await this.fetchHandoffs(await this.fetchShifts()) : this.overrides(); }
+    catch { overrides = this.overrides(); }
     if (!overrides.length) throw new Error("No handoff found");
     const done = [];
     try {
@@ -905,7 +947,7 @@ const Direct = {
         overrides.splice(overrides.indexOf(o), 1);
         done.push(o.schedule);
       }
-    } finally { store.set("overrides", overrides); }
+    } finally { store.set("overrides", overrides); this.s.overrides = overrides; }
     this.onCall.at = 0;
     return "On-call taken back: " + done.join(", ");
   },
@@ -1039,8 +1081,8 @@ const Direct = {
     switch (path) {
       case "/api/ack": res = await this.setStatus(body.id, "acknowledged", "ack", "Acknowledged"); break;
       case "/api/resolve": res = await this.setStatus(body.id, "resolved", "resolve", "Resolved"); break;
-      case "/api/override": res = await text(() => this.handOver()); break;
-      case "/api/override/remove": res = await text(() => this.takeBack()); break;
+      case "/api/override": res = await text(() => this.handOver()); await this.onCallNow().catch(() => {}); break;
+      case "/api/override/remove": res = await text(() => this.takeBack()); await this.onCallNow().catch(() => {}); break;
       case "/api/las/start": res = await text(() => this.startLas("las")); break;
       case "/api/shift/start": res = await text(() => this.startLas("shift")); break;
       case "/api/las/stop": res = await text(() => this.stopLas()); break;
