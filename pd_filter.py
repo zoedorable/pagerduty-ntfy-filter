@@ -775,6 +775,45 @@ def set_incident_status(incident_id, status):
     return None if r.ok else pd_error_text(r)
 
 
+# Sentinel / Defender XDR links from the alert payload, fetched once per incident
+LINKS = {}   # incident ID -> {"sentinel": URL or None, "defender": URL or None}
+LINK_RE = re.compile(r"^https://([a-z0-9-]+\.)*(portal\.azure\.com|security\.microsoft\.com)/", re.I)
+PROVIDER_RE = re.compile(r"Provider ID:\s*(\d+)")
+TENANT_RE = re.compile(r"[?&]tid=([0-9a-f-]{36})", re.I)
+
+
+def extract_links(alert):
+    """Sentinel link from the alert contexts, Defender link from the context or from
+    "Provider ID" plus the customer tenant in the details. Only Azure/Defender URLs count."""
+    body = alert.get("body") or {}
+    contexts = body.get("contexts") or (body.get("cef_details") or {}).get("contexts") or []
+    hrefs = [(c.get("text") or "", c.get("href") or "") for c in contexts if LINK_RE.match(c.get("href") or "")]
+    sentinel = next((h for t, h in hrefs if "sentinel" in t.lower() or "Microsoft_Azure_Security_Insights" in h), None)
+    defender = next((h for _, h in hrefs if "security.microsoft.com/incident" in h.lower()), None)
+    if not defender:
+        details = json.dumps(body.get("details") or "")
+        provider, tenant = PROVIDER_RE.search(details), TENANT_RE.search(details)
+        if provider and tenant:
+            defender = f"https://security.microsoft.com/incidents/{provider.group(1)}?tid={tenant.group(1)}"
+    return {"sentinel": sentinel, "defender": defender}
+
+
+def fill_links(ids, budget=20):
+    """Fetch links for incidents not seen yet (at most `budget` per poll), forget old ones."""
+    for incident_id in [i for i in ids if i not in LINKS][:budget]:
+        try:
+            r = requests.get(f"{PD_API}/incidents/{incident_id}/alerts", headers=PD_HEADERS,
+                             params={"limit": 1}, timeout=20)
+            r.raise_for_status()
+            alerts = r.json().get("alerts") or []
+        except (requests.RequestException, ValueError) as e:
+            log(f"Incident links not loaded, retrying later: {e}")
+            break
+        LINKS[incident_id] = extract_links(alerts[0]) if alerts else {"sentinel": None, "defender": None}
+    for incident_id in [i for i in LINKS if i not in ids]:
+        del LINKS[incident_id]
+
+
 def service_name(incident):
     return (incident.get("service") or {}).get("summary", "")
 
@@ -1018,7 +1057,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             # acknowledged it, their names stay and I'm added.
             if status == "acknowledged" and inc:
                 by = [a for a in inc.get("acked_by") or [] if not a.get("me")]
-                STATE["acked"].insert(0, {k: inc.get(k) for k in ("id", "title", "service", "url", "customer")}
+                STATE["acked"].insert(0, {k: inc.get(k) for k in ("id", "title", "service", "url", "customer", "links")}
                                       | {"acked_at": datetime.now(TZ).isoformat(), "mine": True,
                                          "acked_by": by + [{"name": MY_USER_NAME or "me", "me": True}],
                                          "assigned": inc.get("assigned") or []})
@@ -1123,6 +1162,11 @@ def poll_once(seen):
     acked = fetch_acked(customers, all_mine)
     with STATE_LOCK:
         STATE.update(acked=acked, acked_mine=bool(MY_USER_ID))
+
+    fill_links({i["id"] for i in view} | {a["id"] for a in acked})
+    with STATE_LOCK:
+        for item in STATE["incidents"] + STATE["acked"]:
+            item["links"] = LINKS.get(item["id"])
 
 
 def main():

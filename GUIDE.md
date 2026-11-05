@@ -60,7 +60,12 @@ The previous dashboard is still available at `http://localhost:8790/classic`.
 
 Keyboard shortcuts (`?` shows them): `j`/`k` move, `x` select, `a` ack, `r` resolve
 (the selection, otherwise the focused row), `o` or Enter opens the incident in
-PagerDuty, `/` search, `1`–`5` views, `,` settings, `Esc` clears the selection.
+PagerDuty, `s`/`d` open it in Sentinel / Defender XDR, `/` search, `1`–`5` views, `,` settings, `Esc` clears the selection.
+The **Sentinel** and **XDR** buttons on each row open the incident directly. The links
+come from the PagerDuty alert (the "Sentinel Incident" link, and the Provider ID plus the
+customer tenant for XDR); they are loaded once per incident in the background, so they
+appear a few seconds after a new incident. Incidents without such data (e.g. heartbeat
+alerts) have no buttons.
 The theme link at the bottom of the sidebar switches between auto, dark and light.
 
 At the very top are the open, not yet acknowledged incidents of **your customers**

@@ -85,6 +85,9 @@
   .btn.primary:hover { filter: brightness(1.08); }
   .btn.danger:hover { border-color: var(--alarm); color: var(--alarm); }
   .btn.ok:hover { border-color: var(--ok); color: var(--ok); }
+  .btn.link { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+              background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  .btn.link:hover { text-decoration: none; border-color: var(--accent); }
   .btn.sm { height: 24px; padding: 0 8px; font-size: 12px; border-radius: 7px; }
   .btn.block { width: 100%; justify-content: center; }
   .icon-btn { width: 28px; padding: 0; justify-content: center; }
@@ -489,6 +492,7 @@
     <span><kbd>a</kbd></span><span>Ack selection, or the focused row</span>
     <span><kbd>r</kbd></span><span>Resolve selection, or the focused row</span>
     <span><kbd>o</kbd> <kbd>Enter</kbd></span><span>Open in PagerDuty</span>
+    <span><kbd>s</kbd> <kbd>d</kbd></span><span>Open in Sentinel / Defender XDR</span>
     <span><kbd>/</kbd></span><span>Filter</span>
     <span><kbd>1</kbd>–<kbd>5</kbd></span><span>Switch view</span>
     <span><kbd>,</kbd></span><span>Settings</span>
@@ -577,6 +581,21 @@ const INVISIBLE = /[﻿​‌‍⁠­]/g;
 
 // Same as norm() in pd_filter.py: NFKC, drop invisible characters, collapse whitespace, lowercase
 const norm = s => (s || "").normalize("NFKC").replace(INVISIBLE, "").split(/\s+/).filter(Boolean).join(" ").toLowerCase();
+
+// Sentinel / Defender XDR links from the alert payload (same rules as extract_links() in pd_filter.py)
+const LINK_RE = /^https:\/\/([a-z0-9-]+\.)*(portal\.azure\.com|security\.microsoft\.com)\//i;
+function extractLinks(alert) {
+  const body = alert.body || {};
+  const ctx = (body.contexts || body.cef_details?.contexts || []).filter(c => LINK_RE.test(c.href || ""));
+  const sentinel = ctx.find(c => /sentinel/i.test(c.text || "") || c.href.includes("Microsoft_Azure_Security_Insights"))?.href || null;
+  let defender = ctx.find(c => /security\.microsoft\.com\/incident/i.test(c.href))?.href || null;
+  if (!defender) {
+    const details = JSON.stringify(body.details || "");
+    const provider = details.match(/Provider ID:\s*(\d+)/), tenant = details.match(/[?&]tid=([0-9a-f-]{36})/i);
+    if (provider && tenant) defender = `https://security.microsoft.com/incidents/${provider[1]}?tid=${tenant[1]}`;
+  }
+  return { sentinel, defender };
+}
 
 const Direct = {
   kind: "paw",
@@ -750,6 +769,25 @@ const Direct = {
     if (this.me === undefined) await this.findMe();
     this.s.acked = await this.fetchAcked(customers, !!this.las());
     this.s.acked_mine = !!this.me;
+    await this.fillLinks();
+  },
+
+  // Fetch links for incidents not seen yet (3 at a time, at most 30 per poll), forget old ones
+  async fillLinks() {
+    const links = store.get("links", {});
+    const ids = new Set([...this.s.incidents, ...this.s.acked].map(i => i.id));
+    const queue = [...ids].filter(id => !(id in links)).slice(0, 30);
+    const worker = async () => {
+      for (let id; (id = queue.shift()); ) {
+        try {
+          const r = await this.pd("GET", `/incidents/${encodeURIComponent(id)}/alerts`, { params: { limit: 1 } });
+          links[id] = r.alerts?.[0] ? extractLinks(r.alerts[0]) : { sentinel: null, defender: null };
+        } catch { queue.length = 0; }   // try the rest next poll
+      }
+    };
+    await Promise.all([worker(), worker(), worker()]);
+    for (const id of Object.keys(links)) if (!ids.has(id)) delete links[id];
+    store.set("links", links);
   },
 
   async fetchAcked(customers, allMine) {
@@ -803,8 +841,9 @@ const Direct = {
   },
 
   async state() {
-    const s = this.settings();
-    return { ...this.s, las: this.lasView(), overrides: this.overrides(), settings: s, override_user: s.OVERRIDE_USER,
+    const s = this.settings(), links = store.get("links", {});
+    const withLinks = list => list.map(i => ({ ...i, links: links[i.id] || null }));
+    return { ...this.s, incidents: withLinks(this.s.incidents), acked: withLinks(this.s.acked), las: this.lasView(), overrides: this.overrides(), settings: s, override_user: s.OVERRIDE_USER,
              service_filter: this.serviceFilter(), poll_seconds: s.POLL_SECONDS, events: this.events(), all_mine: !!this.las() };
   },
   lasView() { const l = this.las(); return l ? { mode: l.mode || "las", until: l.until } : null; },
@@ -1062,6 +1101,12 @@ const custCell = c => `<div class="cust">${c ? `<span>${esc(c)}</span>` : '<span
 const titleCell = (i, extra = "") => `<div class="title">
   <a href="${esc(i.url)}" target="_blank" rel="noopener" title="${esc(i.title)}">${esc(i.title)}</a>
   <div class="meta">${esc(i.service)}${extra}</div></div>`;
+// Quick links to the incident in Sentinel / Defender XDR (only validated Azure/Defender URLs)
+const linkBtns = i => ["sentinel", "defender"].map(k => {
+  const url = i.links?.[k];
+  return url && LINK_RE.test(url) ? `<a class="btn sm link" href="${esc(url)}" target="_blank" rel="noopener"
+    title="Open in ${k === "sentinel" ? "Sentinel" : "Defender XDR"} (${k[0]})">${k === "sentinel" ? "Sentinel" : "XDR"}</a>` : "";
+}).join("");
 const check = i => `<input type="checkbox" class="sel-one" data-id="${esc(i.id)}"${selected.has(i.id) ? " checked" : ""}>`;
 
 function incRow(i) {
@@ -1073,6 +1118,7 @@ function incRow(i) {
     ${titleCell(i, i.assigned_me ? '<span class="tag">YOU</span>' : "")}
     <div class="who"></div>
     <div class="actions">
+      ${linkBtns(i)}
       <button class="btn sm ok" data-action="ack" data-id="${esc(i.id)}">Ack</button>
       <button class="btn sm danger" data-action="resolve" data-id="${esc(i.id)}">Resolve</button>
     </div></div>`;
@@ -1089,6 +1135,7 @@ function ackedRow(i) {
     ${titleCell(i, other.length ? ` · assigned: ${esc(other.join(", "))}` : "")}
     <div class="who" title="Acked by">${by}</div>
     <div class="actions">
+      ${linkBtns(i)}
       ${i.mine ? "" : `<button class="btn sm ok" data-action="ack" data-id="${esc(i.id)}" title="Acknowledge yourself as well">Ack</button>`}
       <button class="btn sm danger" data-action="resolve" data-id="${esc(i.id)}">Resolve</button>
     </div></div>`;
@@ -1439,6 +1486,12 @@ document.addEventListener("keydown", ev => {
     case "o": case "Enter": {
       const url = rows[idx]?.dataset.url;
       if (url) window.open(url, "_blank", "noopener");
+      break;
+    }
+    case "s": case "d": {
+      const item = [...(lastData?.incidents || []), ...(lastData?.acked || [])].find(i => i.id === focusedId);
+      const url = item?.links?.[ev.key === "s" ? "sentinel" : "defender"];
+      if (url && LINK_RE.test(url)) window.open(url, "_blank", "noopener");
       break;
     }
     case "/": $("search").focus(); break;
