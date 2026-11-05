@@ -129,6 +129,7 @@ QUIET = True   # always on, cannot be turned off via config.env or the dashboard
 WEB_PORT = int(os.environ.get("WEB_PORT", "8790") or 0)   # 0 = dashboard off
 PD_FROM_EMAIL = os.environ.get("PD_FROM_EMAIL", "").strip()
 PD_API = "https://api.pagerduty.com"
+CONSOLE_FILE = BASE_DIR / "console.html"      # main view (also works standalone via file://)
 DASHBOARD_FILE = BASE_DIR / "dashboard.html"
 MINI_FILE = BASE_DIR / "mini.html"          # compact view for the extension popup
 PAW_FILE = BASE_DIR / "paw.html"            # PAW Exchange: analyze uploads from the PAW with one click
@@ -883,7 +884,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if not self._host_ok():
             return self._send(403, b"forbidden", "text/plain; charset=utf-8")
-        pages = {"/": DASHBOARD_FILE, "/index.html": DASHBOARD_FILE, "/mini": MINI_FILE}
+        pages = {"/": CONSOLE_FILE, "/index.html": CONSOLE_FILE, "/classic": DASHBOARD_FILE, "/mini": MINI_FILE}
         if paw_exchange.enabled():
             pages["/paw"] = PAW_FILE
         if self.path in pages:

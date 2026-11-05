@@ -16,14 +16,16 @@ directly in PagerDuty or hand off the rest of your shift.
 - **Loud or silent:** loud alarms with ntfy priority *urgent*. Silent notifications
   without sound, optionally on a separate topic.
 - **No double alarms:** each incident is reported only once, even after a restart.
-- **Dashboard** (`http://localhost:8790`, local only):
-  - at the top the open incidents of your customers, below them the acknowledged ones
-    (yours and those of your customers, with an "Acked by" column); during LAS all
-    customers count as yours
-  - Ack and Resolve with one click
-  - counter tiles as filters, history of all decisions
+- **Console** (`http://localhost:8790`, local only):
+  - sidebar with status, on-call handoff, LAS and customers; main pane with the open
+    incidents of your customers, the acknowledged ones ("Acked by") and the rest
+  - Ack and Resolve with one click, multiselect, keyboard shortcuts (`?` shows them)
+  - views as filters, search, history of all decisions, dark and light theme
   - change settings (silent notifications, service filter, schedule, time window …) live,
     without a restart
+  - the previous dashboard is still at `/classic`
+- **PAW / standalone:** open `console.html` directly from disk (`file://`). It then talks
+  to the PagerDuty API itself, no Python and no ntfy needed; alerts are in-tab only.
 - **Browser extension** (optional, Chrome/Edge): compact popup with Ack/Resolve, badge
   with the number of open incidents of your customers, icon blinks on loud alarms
 - **Only while on call** (`ONLY_ON_CALL=true`): if PagerDuty says you're not on call right

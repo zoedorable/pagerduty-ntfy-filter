@@ -1,0 +1,1565 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PD Console</title>
+<link rel="icon" id="favicon" href="data:,">
+<style>
+  /* Dark first; light via system preference or the theme switch (data-theme) */
+  :root {
+    --bg: #0a0c11; --bg-glow-1: rgba(124, 92, 255, .16); --bg-glow-2: rgba(34, 211, 238, .08);
+    --panel: rgba(255, 255, 255, .035); --panel-2: rgba(255, 255, 255, .06); --panel-solid: #12151c;
+    --line: rgba(255, 255, 255, .08); --line-2: rgba(255, 255, 255, .14);
+    --text: #e8eaf0; --muted: #8a92a3; --faint: #5c6475;
+    --accent: #8b7bff; --accent-2: #22d3ee; --accent-ink: #0a0c11;
+    --alarm: #ff5d5d; --alarm-bg: rgba(255, 93, 93, .1);
+    --svc: #f2c14e; --svc-bg: rgba(242, 193, 78, .1);
+    --cust: #8a92a3; --cust-bg: rgba(138, 146, 163, .1);
+    --silent: #7aa2ff; --silent-bg: rgba(122, 162, 255, .1);
+    --ok: #3ddc84; --ok-bg: rgba(61, 220, 132, .1);
+    --err: #ff5d5d;
+    --shadow: 0 10px 40px rgba(0, 0, 0, .45);
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f5f6fa; --bg-glow-1: rgba(124, 92, 255, .12); --bg-glow-2: rgba(34, 211, 238, .1);
+      --panel: rgba(255, 255, 255, .75); --panel-2: rgba(15, 23, 42, .045); --panel-solid: #ffffff;
+      --line: rgba(15, 23, 42, .08); --line-2: rgba(15, 23, 42, .16);
+      --text: #161a23; --muted: #5d6576; --faint: #9aa1ae;
+      --accent: #6a55f5; --accent-2: #0891b2; --accent-ink: #ffffff;
+      --alarm: #dc2f2f; --alarm-bg: rgba(220, 47, 47, .08);
+      --svc: #9a6b00; --svc-bg: rgba(242, 177, 30, .14);
+      --cust: #5d6576; --cust-bg: rgba(93, 101, 118, .1);
+      --silent: #3460d6; --silent-bg: rgba(52, 96, 214, .1);
+      --ok: #16a05a; --ok-bg: rgba(22, 160, 90, .1);
+      --err: #dc2f2f;
+      --shadow: 0 10px 40px rgba(15, 23, 42, .12);
+      color-scheme: light;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #f5f6fa; --bg-glow-1: rgba(124, 92, 255, .12); --bg-glow-2: rgba(34, 211, 238, .1);
+    --panel: rgba(255, 255, 255, .75); --panel-2: rgba(15, 23, 42, .045); --panel-solid: #ffffff;
+    --line: rgba(15, 23, 42, .08); --line-2: rgba(15, 23, 42, .16);
+    --text: #161a23; --muted: #5d6576; --faint: #9aa1ae;
+    --accent: #6a55f5; --accent-2: #0891b2; --accent-ink: #ffffff;
+    --alarm: #dc2f2f; --alarm-bg: rgba(220, 47, 47, .08);
+    --svc: #9a6b00; --svc-bg: rgba(242, 177, 30, .14);
+    --cust: #5d6576; --cust-bg: rgba(93, 101, 118, .1);
+    --silent: #3460d6; --silent-bg: rgba(52, 96, 214, .1);
+    --ok: #16a05a; --ok-bg: rgba(22, 160, 90, .1);
+    --err: #dc2f2f;
+    --shadow: 0 10px 40px rgba(15, 23, 42, .12);
+    color-scheme: light;
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; color: var(--text); background: var(--bg);
+    background-image: radial-gradient(900px 500px at 0% 0%, var(--bg-glow-1), transparent 60%),
+                      radial-gradient(700px 500px at 100% 0%, var(--bg-glow-2), transparent 60%);
+    background-attachment: fixed;
+    font: 13px/1.5 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+    font-feature-settings: "tnum" 1, "cv11" 1;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; text-decoration: none; }
+  a:hover { text-decoration: underline; text-decoration-color: var(--line-2); }
+  .mono { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace; font-size: 12px; }
+  .muted { color: var(--muted); }
+  button, input, select { font: inherit; color: inherit; }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 11px; border-radius: 8px;
+         border: 1px solid var(--line-2); background: var(--panel-2); cursor: pointer; white-space: nowrap;
+         transition: background .15s, border-color .15s, transform .05s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: .45; cursor: default; border-color: var(--line-2); }
+  .btn.primary { border: 0; color: var(--accent-ink); font-weight: 600;
+                 background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn.danger:hover { border-color: var(--alarm); color: var(--alarm); }
+  .btn.ok:hover { border-color: var(--ok); color: var(--ok); }
+  .btn.sm { height: 24px; padding: 0 8px; font-size: 12px; border-radius: 7px; }
+  .btn.block { width: 100%; justify-content: center; }
+  .icon-btn { width: 28px; padding: 0; justify-content: center; }
+  kbd { font: 11px ui-monospace, "SF Mono", Consolas, monospace; padding: 1px 5px; border-radius: 5px;
+        border: 1px solid var(--line-2); background: var(--panel-2); color: var(--muted); }
+
+  /* Layout */
+  .app { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
+  aside { position: sticky; top: 0; height: 100vh; overflow-y: auto; padding: 18px 14px 24px;
+          border-right: 1px solid var(--line); background: var(--panel); backdrop-filter: blur(18px);
+          display: flex; flex-direction: column; gap: 14px; }
+  main { min-width: 0; padding: 0 24px 120px; }
+
+  .brand { display: flex; align-items: center; gap: 10px; padding: 2px 4px; }
+  .logo { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; font-weight: 700;
+          color: var(--accent-ink); background: linear-gradient(135deg, var(--accent), var(--accent-2));
+          box-shadow: 0 0 24px color-mix(in srgb, var(--accent) 45%, transparent); }
+  .brand b { font-size: 14px; letter-spacing: -.01em; }
+  .mode { margin-left: auto; font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+          padding: 2px 7px; border-radius: 99px; border: 1px solid var(--line-2); color: var(--muted); }
+
+  .card { border: 1px solid var(--line); background: var(--panel); border-radius: 12px; }
+  .side-card { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .side-title { font-size: 10.5px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase;
+                color: var(--faint); display: flex; align-items: center; gap: 6px; }
+  .side-title .grow { flex: 1; }
+  .kv { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); }
+  .kv b { color: var(--text); font-weight: 500; text-align: right; overflow: hidden; text-overflow: ellipsis; }
+  .btn-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .btn-row .btn { flex: 1; justify-content: center; }
+
+  .status-line { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
+  .dot.on { background: var(--ok); box-shadow: 0 0 0 4px var(--ok-bg), 0 0 12px var(--ok); }
+  .dot.err { background: var(--err); box-shadow: 0 0 0 4px var(--alarm-bg); }
+  .dot.pause { background: var(--svc); box-shadow: 0 0 0 4px var(--svc-bg); }
+  .pill-on { color: var(--ok); }
+
+  /* View filter list */
+  .views { display: flex; flex-direction: column; gap: 2px; }
+  .view { display: flex; align-items: center; gap: 9px; padding: 6px 8px; border-radius: 8px; border: 0;
+          background: none; cursor: pointer; text-align: left; color: var(--muted); }
+  .view:hover { background: var(--panel-2); color: var(--text); }
+  .view.active { background: var(--panel-2); color: var(--text); box-shadow: inset 2px 0 0 var(--accent); }
+  .view .sw { width: 8px; height: 8px; border-radius: 3px; flex: none; }
+  .view .n { margin-left: auto; font-size: 12px; color: var(--faint); }
+  .view.active .n { color: var(--text); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 9px; border-radius: 99px;
+          background: var(--panel-2); border: 1px solid var(--line); font-size: 12px; }
+  .chip button { border: 0; background: none; color: var(--faint); cursor: pointer; padding: 0 4px; font-size: 14px;
+                 line-height: 1; border-radius: 99px; }
+  .chip button:hover { color: var(--alarm); }
+  .add-row { display: flex; gap: 6px; }
+  .input { height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line-2);
+           background: var(--panel-2); outline: none; min-width: 0; width: 100%; }
+  .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+  .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 6px; }
+  .side-links { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--muted); padding: 0 4px; }
+
+  /* Top bar */
+  .topbar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; margin: 0 -24px;
+            padding: 14px 24px; background: color-mix(in srgb, var(--bg) 72%, transparent);
+            backdrop-filter: blur(16px) saturate(1.4); border-bottom: 1px solid var(--line); }
+  .topbar h1 { font-size: 16px; margin: 0; letter-spacing: -.01em; white-space: nowrap; }
+  .topbar .sub { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .search { margin-left: auto; position: relative; width: min(320px, 40vw); }
+  .search .input { padding-left: 30px; }
+  .search svg { position: absolute; left: 10px; top: 8px; width: 14px; height: 14px; color: var(--faint); }
+  .menu-btn { display: none; }
+
+  .banner { margin-top: 14px; padding: 10px 14px; border-radius: 10px; display: flex; gap: 10px; align-items: center;
+            border: 1px solid color-mix(in srgb, var(--svc) 35%, transparent); background: var(--svc-bg); }
+  .banner.err { border-color: color-mix(in srgb, var(--alarm) 40%, transparent); background: var(--alarm-bg); }
+
+  /* Sections and rows */
+  section { margin-top: 22px; }
+  .sec-head { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; padding: 0 2px; }
+  .sec-head h2 { margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase;
+                 color: var(--muted); }
+  .count { font-size: 11px; padding: 0 7px; border-radius: 99px; background: var(--panel-2); color: var(--muted);
+           border: 1px solid var(--line); }
+  .sec-head .grow { flex: 1; }
+  .sel-all { cursor: pointer; accent-color: var(--accent); }
+  .collapse { border: 0; background: none; cursor: pointer; color: var(--faint); padding: 0 4px; }
+  .collapse:hover { color: var(--text); }
+
+  .list { overflow: hidden; }
+  .row { position: relative; display: grid; align-items: center; gap: 12px; padding: 9px 14px 9px 12px;
+         grid-template-columns: 18px 22px 56px minmax(80px, 140px) minmax(0, 1fr) auto auto;
+         border-top: 1px solid var(--line); transition: background .12s; }
+  .row:first-child { border-top: 0; }
+  .row:hover { background: var(--panel-2); }
+  .row.focus { background: color-mix(in srgb, var(--accent) 9%, transparent);
+               box-shadow: inset 2px 0 0 var(--accent); }
+  .row.picked { background: color-mix(in srgb, var(--accent) 13%, transparent); }
+  .row.alarm::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 3px;
+                       background: linear-gradient(180deg, var(--alarm), color-mix(in srgb, var(--alarm) 40%, transparent));
+                       box-shadow: 0 0 18px var(--alarm); }
+  .row.alarm { background: linear-gradient(90deg, var(--alarm-bg), transparent 45%); }
+  .row input[type=checkbox] { cursor: pointer; accent-color: var(--accent); margin: 0; }
+  .ico { width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; font-size: 11px; }
+  .ico.alarm { background: var(--alarm-bg); color: var(--alarm); }
+  .ico.alarm::after { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--alarm);
+                      animation: pulse 1.4s ease-in-out infinite; }
+  .ico.silent { background: var(--silent-bg); color: var(--silent); }
+  .ico.service { background: var(--svc-bg); color: var(--svc); }
+  .ico.customer { background: var(--cust-bg); color: var(--cust); }
+  .ico.pending { background: var(--alarm-bg); color: var(--alarm); }
+  .ico.acked { background: var(--ok-bg); color: var(--ok); }
+  @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.7); } }
+  .age { color: var(--muted); }
+  .cust { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cust span { padding: 1px 8px; border-radius: 99px; font-size: 11.5px; background: var(--panel-2);
+               border: 1px solid var(--line); }
+  .cust .none { color: var(--faint); background: none; border: 0; padding: 0; }
+  .title { min-width: 0; }
+  .title a { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+  .title .meta { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tag { display: inline-block; font-size: 10.5px; font-weight: 600; padding: 0 6px; border-radius: 5px;
+         background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); margin-left: 4px; }
+  .who { color: var(--muted); font-size: 12px; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+  .who .me { color: var(--accent); font-weight: 600; }
+  .actions { display: flex; gap: 6px; opacity: .55; transition: opacity .12s; }
+  .row:hover .actions, .row.focus .actions, .row.picked .actions { opacity: 1; }
+  .empty { padding: 22px; text-align: center; color: var(--faint); }
+
+  .events .row { grid-template-columns: 64px 120px minmax(0, 1fr); }
+  .badge { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 99px; white-space: nowrap; }
+  .b-alarm, .b-error, .b-pending { background: var(--alarm-bg); color: var(--alarm); }
+  .b-silent, .b-info { background: var(--silent-bg); color: var(--silent); }
+  .b-service { background: var(--svc-bg); color: var(--svc); }
+  .b-customer { background: var(--cust-bg); color: var(--cust); }
+  .b-ack, .b-resolve { background: var(--ok-bg); color: var(--ok); }
+
+  /* Bulk bar, toast, overlays */
+  #bulk { position: fixed; left: calc(50% + 130px); bottom: 24px; transform: translateX(-50%); z-index: 20;
+          display: flex; gap: 8px; align-items: center; padding: 8px 8px 8px 14px; border-radius: 14px;
+          background: var(--panel-solid); border: 1px solid var(--line-2); box-shadow: var(--shadow); }
+  #bulkCount { font-weight: 600; margin-right: 4px; white-space: nowrap; }
+  #toasts { position: fixed; right: 20px; bottom: 20px; z-index: 40; display: flex; flex-direction: column; gap: 8px;
+            align-items: flex-end; pointer-events: none; }
+  .toast { max-width: 420px; padding: 10px 14px; border-radius: 10px; background: var(--panel-solid);
+           border: 1px solid var(--line-2); box-shadow: var(--shadow); animation: up .2s ease-out; }
+  .toast.err { border-color: color-mix(in srgb, var(--alarm) 50%, transparent); color: var(--alarm); }
+  @keyframes up { from { opacity: 0; transform: translateY(6px); } }
+
+  .scrim { position: fixed; inset: 0; z-index: 30; background: rgba(0, 0, 0, .45); backdrop-filter: blur(3px); }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 31; width: min(440px, 100vw); overflow-y: auto;
+            padding: 20px; background: var(--panel-solid); border-left: 1px solid var(--line-2); box-shadow: var(--shadow);
+            animation: slide .2s ease-out; }
+  @keyframes slide { from { transform: translateX(24px); opacity: 0; } }
+  .drawer h2 { margin: 0 0 4px; font-size: 16px; }
+  .drawer h3 { margin: 22px 0 8px; font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--faint); }
+  .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; color: var(--muted); }
+  .field .input, .field select { color: var(--text); }
+  select.input { padding-right: 6px; }
+  .check { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; cursor: pointer; }
+  .check input { accent-color: var(--accent); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .hint { font-size: 12px; color: var(--faint); }
+  .drawer-foot { position: sticky; bottom: -20px; margin: 20px -20px -20px; padding: 14px 20px;
+                 background: var(--panel-solid); border-top: 1px solid var(--line); display: flex; gap: 8px; align-items: center; }
+
+  .modal { position: fixed; z-index: 31; left: 50%; top: 50%; transform: translate(-50%, -50%);
+           width: min(440px, calc(100vw - 32px)); padding: 22px; border-radius: 16px; background: var(--panel-solid);
+           border: 1px solid var(--line-2); box-shadow: var(--shadow); }
+  .modal h2 { margin: 0 0 6px; font-size: 17px; }
+  .keys { display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; margin-top: 12px; color: var(--muted); }
+
+  .connect { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+  .connect .modal { position: static; transform: none; }
+
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; }
+    aside { position: fixed; z-index: 32; left: 0; top: 0; width: min(300px, 88vw); background: var(--panel-solid);
+            transform: translateX(-100%); transition: transform .2s; box-shadow: var(--shadow); }
+    body.nav-open aside { transform: none; }
+    main { padding: 0 16px 120px; }
+    .topbar { margin: 0 -16px; padding: 12px 16px; }
+    .menu-btn { display: inline-flex; }
+    #bulk { left: 50%; }
+    .topbar .sub { display: none; }
+    .search { width: auto; flex: 1; min-width: 0; }
+    .row { grid-template-columns: 18px 22px 36px minmax(0, 1fr) auto; gap: 8px; padding: 9px 10px; }
+    .row .cust, .row .who { display: none; }
+    .actions { opacity: 1; flex-direction: column; gap: 4px; }
+    .events .row { grid-template-columns: 48px minmax(0, 1fr); }
+    .events .row > :nth-child(2) { display: none; }
+  }
+  @media (max-width: 900px) { body { overflow-x: hidden; } }
+</style>
+</head>
+<body>
+
+<div class="connect" id="connect" hidden>
+  <form class="modal" id="connectForm">
+    <div class="brand" style="padding:0 0 12px"><div class="logo">P</div><b>PD Console</b><span class="mode">direct</span></div>
+    <h2>Connect to PagerDuty</h2>
+    <p class="muted" style="margin:0 0 16px">This page talks to the PagerDuty API directly from the browser.
+      Use your personal API key (My Profile → User Settings → API Access).</p>
+    <label class="field">API key
+      <input class="input" name="token" type="password" autocomplete="off" required>
+    </label>
+    <label class="field">Email (only for account keys, used as From header)
+      <input class="input" name="fromEmail" type="email" autocomplete="off">
+    </label>
+    <label class="check"><input type="checkbox" name="remember" checked> Remember on this computer</label>
+    <p class="hint" style="margin:0 0 14px">Remembered keys sit in this browser's local storage. Pages opened from disk
+      (file://) share that storage, so other local HTML files could read it.</p>
+    <div id="connectErr" class="toast err" style="margin-bottom:12px;animation:none" hidden></div>
+    <button class="btn primary block" type="submit">Connect</button>
+  </form>
+</div>
+
+<div class="app" id="app" hidden>
+  <aside>
+    <div class="brand"><div class="logo">P</div><b>PD Console</b><span class="mode" id="modeBadge">–</span></div>
+
+    <div class="card side-card">
+      <div class="status-line"><span class="dot" id="dot"></span><span id="status">connecting…</span></div>
+      <div class="kv"><span>Last poll</span><b class="mono" id="lastPoll">–</b></div>
+      <div class="kv" id="svcRow"><span>Loud for</span><b id="svcFilter">–</b></div>
+    </div>
+
+    <div class="card side-card">
+      <div class="side-title">On-call</div>
+      <div class="kv"><span id="shiftLabel">Not on call</span><b class="mono" id="shiftEnd"></b></div>
+      <button class="btn sm block" id="override" hidden>Hand off on-call</button>
+      <div id="takeBackBox" hidden>
+        <div class="hint" id="handedOver" style="margin-bottom:6px"></div>
+        <button class="btn sm block" id="takeBack">Take back on-call</button>
+      </div>
+    </div>
+
+    <div class="card side-card">
+      <div class="side-title">PD notifications <span class="grow"></span><span id="las" class="muted" style="text-transform:none;letter-spacing:0">off</span></div>
+      <div class="btn-row">
+        <button class="btn sm" id="lasToggle">LAS on</button>
+        <button class="btn sm" id="shiftPush" title="On until you turn it off">On (no end)</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="side-title" style="padding:0 4px 6px">Views</div>
+      <div class="views" id="views">
+        <button class="view active" data-f="all"><span class="sw" style="background:linear-gradient(135deg,var(--accent),var(--accent-2))"></span>All open<span class="n" id="nAll">0</span></button>
+        <button class="view" data-f="alarm"><span class="sw" style="background:var(--alarm)"></span>Loud<span class="n" id="nAlarm">0</span></button>
+        <button class="view" data-f="silent"><span class="sw" style="background:var(--silent)"></span>Silent<span class="n" id="nSilent">0</span></button>
+        <button class="view" data-f="service"><span class="sw" style="background:var(--svc)"></span>Other service<span class="n" id="nService">0</span></button>
+        <button class="view" data-f="customer"><span class="sw" style="background:var(--cust)"></span>Not my customer<span class="n" id="nCustomer">0</span></button>
+      </div>
+    </div>
+
+    <div>
+      <div class="side-title" style="padding:0 4px 6px">Customers</div>
+      <div class="chips" id="customers"></div>
+      <form class="add-row" id="addCustomer" style="margin-top:8px" hidden>
+        <input class="input" id="newCustomer" placeholder="Add customer" maxlength="100" autocomplete="off">
+        <button class="btn icon-btn" type="submit" title="Add">+</button>
+      </form>
+    </div>
+
+    <div class="side-foot">
+      <button class="btn block" id="openSettings">Settings <kbd>,</kbd></button>
+      <div class="side-links">
+        <a href="#" id="helpLink">Shortcuts <kbd>?</kbd></a>
+        <a href="#" id="themeLink">Theme: auto</a>
+        <a href="/classic" id="classicLink" hidden>Classic view</a>
+        <a href="/paw" id="pawLink" hidden>PAW Exchange</a>
+      </div>
+    </div>
+  </aside>
+
+  <main>
+    <div class="topbar">
+      <button class="btn icon-btn menu-btn" id="menuBtn" title="Menu">☰</button>
+      <h1 id="viewTitle">All open</h1>
+      <span class="sub" id="viewSub"></span>
+      <div class="search">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="5"/><path d="m11 11 3.5 3.5"/></svg>
+        <input class="input" id="search" placeholder="Filter by title, customer, service   /" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="banner" id="soundBanner" hidden>🔔 <span>Alert sound is off until you click anywhere on this page (browser rule).</span></div>
+    <div class="banner err" id="errBanner" hidden></div>
+
+    <section>
+      <div class="sec-head">
+        <input type="checkbox" class="sel-all" data-list="mine" title="Select all">
+        <h2 id="mineTitle">My customers · open</h2><span class="count" id="mineCount">0</span>
+      </div>
+      <div class="card list" id="mine"></div>
+    </section>
+
+    <section>
+      <div class="sec-head">
+        <input type="checkbox" class="sel-all" data-list="acked" title="Select all">
+        <h2 id="ackedTitle">Acknowledged</h2><span class="count" id="ackedCount">0</span>
+        <span class="grow"></span><button class="collapse" data-box="acked">hide</button>
+      </div>
+      <div class="card list" id="acked"></div>
+    </section>
+
+    <section id="othersBox">
+      <div class="sec-head">
+        <input type="checkbox" class="sel-all" data-list="incidents" title="Select all">
+        <h2>Other customers · open</h2><span class="count" id="othersCount">0</span>
+        <span class="grow"></span><button class="collapse" data-box="incidents">hide</button>
+      </div>
+      <div class="card list" id="incidents"></div>
+    </section>
+
+    <section>
+      <div class="sec-head">
+        <h2>History</h2><span class="count" id="eventsCount">0</span>
+        <span class="grow"></span><button class="collapse" data-box="events">hide</button>
+      </div>
+      <div class="card list events" id="events"></div>
+    </section>
+  </main>
+</div>
+
+<div id="bulk" hidden>
+  <span id="bulkCount"></span>
+  <button class="btn sm ok" id="bulkAck">Ack</button>
+  <button class="btn sm danger" id="bulkResolve">Resolve</button>
+  <button class="btn sm" id="bulkClear">Clear</button>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+
+<form class="drawer" id="settings" hidden>
+  <h2>Settings</h2>
+  <div class="hint" id="settingsHint"></div>
+
+  <h3>Filter</h3>
+  <label class="field">Loud only for service (separate with ;, empty = all)
+    <input class="input" name="SERVICE_FILTER" placeholder="e.g. CSOC (High)">
+  </label>
+  <label class="field"><span id="silentLabel">Silent notification for</span>
+    <select class="input" name="SILENT_FOR">
+      <option value="customers">my customers when the service does not match</option>
+      <option value="all">all incidents that are not loud</option>
+      <option value="none">never</option>
+    </select>
+  </label>
+  <label class="check"><input type="checkbox" name="ONLY_IN_WINDOW"> Only during set hours</label>
+  <div class="grid2">
+    <label class="field">From (hour) <input class="input" type="number" name="START_HOUR" min="0" max="24"></label>
+    <label class="field">Until (hour) <input class="input" type="number" name="END_HOUR" min="0" max="24"></label>
+  </div>
+  <label class="check"><input type="checkbox" name="WEEKDAYS_ONLY"> Mon–Fri only</label>
+  <label class="field">Poll PagerDuty every (seconds) <input class="input" type="number" name="POLL_SECONDS" min="5" max="3600"></label>
+
+  <h3>On-call</h3>
+  <label class="check"><input type="checkbox" name="ONLY_ON_CALL"> Only while I am on call</label>
+  <label class="field">Hand off on-call to (PagerDuty name or email) <input class="input" name="OVERRIDE_USER"></label>
+
+  <h3>PagerDuty notifications (LAS)</h3>
+  <div class="grid2">
+    <label class="field">LAS until (hour) <input class="input" type="number" name="LAS_END_HOUR" min="0" max="24"></label>
+    <label class="field">Urgency
+      <select class="input" name="LAS_URGENCY">
+        <option value="high">high</option>
+        <option value="low">low</option>
+        <option value="both">high and low</option>
+      </select>
+    </label>
+  </div>
+  <div class="field">Notify via (none selected = all devices with the PagerDuty app)
+    <input type="hidden" name="LAS_CONTACTS">
+    <div id="contactList" class="hint">loading…</div>
+  </div>
+
+  <div id="directSettings" hidden>
+    <h3>This browser</h3>
+    <label class="check"><input type="checkbox" id="soundOn"> Alert sound for loud incidents</label>
+    <label class="field">Customer list (one per line, replaces the current list)
+      <textarea class="input" id="customerImport" rows="4" style="height:auto;padding:8px 10px;resize:vertical"></textarea>
+    </label>
+    <button class="btn sm" type="button" id="importCustomers">Replace customer list</button>
+    <h3>PagerDuty key</h3>
+    <div class="hint" id="tokenInfo" style="margin-bottom:8px"></div>
+    <button class="btn sm danger" type="button" id="forgetToken">Forget key and disconnect</button>
+  </div>
+
+  <div class="drawer-foot">
+    <button class="btn primary" type="submit">Save</button>
+    <button class="btn" type="button" id="closeSettings">Close</button>
+    <span class="hint" id="saveHint"></span>
+  </div>
+</form>
+
+<div class="modal" id="help" hidden>
+  <h2>Keyboard shortcuts</h2>
+  <div class="keys">
+    <span><kbd>j</kbd> <kbd>k</kbd></span><span>Move down / up</span>
+    <span><kbd>x</kbd></span><span>Select row</span>
+    <span><kbd>a</kbd></span><span>Ack selection, or the focused row</span>
+    <span><kbd>r</kbd></span><span>Resolve selection, or the focused row</span>
+    <span><kbd>o</kbd> <kbd>Enter</kbd></span><span>Open in PagerDuty</span>
+    <span><kbd>/</kbd></span><span>Filter</span>
+    <span><kbd>1</kbd>–<kbd>5</kbd></span><span>Switch view</span>
+    <span><kbd>,</kbd></span><span>Settings</span>
+    <span><kbd>Esc</kbd></span><span>Clear selection, close panels</span>
+  </div>
+</div>
+
+<div id="toasts" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+/* ================= Helpers ================= */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const pad = n => String(n).padStart(2, "0");
+const hhmm = iso => { const d = new Date(iso); return isNaN(d) ? "–" : `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const nowStr = () => { const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
+const age = iso => {
+  const s = (Date.now() - new Date(iso)) / 1000;
+  if (!isFinite(s)) return "–";
+  if (s < 60) return "now";
+  if (s < 3600) return Math.floor(s / 60) + "m";
+  if (s < 86400) return Math.floor(s / 3600) + "h";
+  return Math.floor(s / 86400) + "d";
+};
+
+// Browser storage: per-browser conveniences and, in direct mode, the filter's own state
+const store = {
+  get(key, fallback) {
+    try { const v = localStorage.getItem("pdc." + key); return v === null ? fallback : JSON.parse(v); }
+    catch { return fallback; }
+  },
+  set(key, value) {
+    try { value === undefined ? localStorage.removeItem("pdc." + key) : localStorage.setItem("pdc." + key, JSON.stringify(value)); }
+    catch { /* storage blocked: works for this page load only */ }
+  },
+};
+const session = {
+  get(key) { try { return sessionStorage.getItem("pdc." + key); } catch { return null; } },
+  set(key, value) { try { value == null ? sessionStorage.removeItem("pdc." + key) : sessionStorage.setItem("pdc." + key, value); } catch {} },
+};
+
+/* ================= Server backend (Mac, page served by pd_filter.py) ================= */
+const ServerBackend = {
+  kind: "mac",
+  async state() {
+    const r = await fetch("/api/state", { cache: "no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  },
+  async call(path, body = {}) {
+    const r = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-PD-Filter": "1" },
+      body: JSON.stringify(body),
+    });
+    const res = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(res.error || "HTTP " + r.status);
+    return res;
+  },
+  async contacts() {
+    const r = await fetch("/api/contacts", { cache: "no-store" });
+    const res = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(res.error || "HTTP " + r.status);
+    return res.contacts;
+  },
+};
+
+/* ================= Direct backend (PAW / file://): port of pd_filter.py ================= */
+const PD_API = "https://api.pagerduty.com";
+const DEFAULTS = {
+  SILENT_FOR: "customers", SERVICE_FILTER: "CSOC (High)", ONLY_ON_CALL: false, OVERRIDE_USER: "CSOC Dummy",
+  LAS_END_HOUR: 18, LAS_CONTACTS: "", LAS_URGENCY: "high", ONLY_IN_WINDOW: false, START_HOUR: 8,
+  END_HOUR: 18, WEEKDAYS_ONLY: true, POLL_SECONDS: 30,
+};
+const ENUMS = { SILENT_FOR: ["customers", "all", "none"], LAS_URGENCY: ["high", "low", "both"] };
+const LEGACY = { SILENT_FOR: { kunden: "customers", alle: "all", keine: "none" },
+                 LAS_URGENCY: { hoch: "high", niedrig: "low", beide: "both" } };
+const CONTACT_TYPES = { push_notification_contact_method: "Push", sms_contact_method: "SMS",
+                        phone_contact_method: "Call", email_contact_method: "Email" };
+const URGENCY_TEXT = { high: "high urgency", low: "low urgency", both: "high and low urgency" };
+const ID_RE = /^[A-Za-z0-9]{1,64}$/;
+const INVISIBLE = /[﻿​‌‍⁠­]/g;
+
+// Same as norm() in pd_filter.py: NFKC, drop invisible characters, collapse whitespace, lowercase
+const norm = s => (s || "").normalize("NFKC").replace(INVISIBLE, "").split(/\s+/).filter(Boolean).join(" ").toLowerCase();
+
+const Direct = {
+  kind: "paw",
+  token: null, fromEmail: "",
+  me: undefined,          // undefined = not determined yet, null = cannot be determined
+  myName: "",
+  onCall: { at: 0, value: true, known: false },
+  timer: null, paused: null, alertHook: null,
+  s: {
+    started: null, last_poll: null, last_error: null, paused: null, incidents: [], acked: [], acked_mine: false,
+    shift: null, overrides: [], las: null, customers: [], customers_editable: true, paw: false,
+  },
+
+  settings() {
+    const saved = store.get("settings", {});
+    const s = { ...DEFAULTS, ...saved };
+    for (const k of Object.keys(ENUMS)) {
+      s[k] = LEGACY[k][s[k]] || s[k];
+      if (!ENUMS[k].includes(s[k])) s[k] = DEFAULTS[k];
+    }
+    return s;
+  },
+  serviceFilter() { return this.settings().SERVICE_FILTER.split(";").map(x => x.trim().toLowerCase()).filter(Boolean); },
+  customers() { return (store.get("customers", [])).map(norm).filter(c => c && !c.startsWith("#")); },
+  events() { return store.get("events", []); },
+  addEvent(kind, text, inc, customer) {
+    const ev = { time: nowStr(), kind, text };
+    if (inc) Object.assign(ev, { title: inc.title || "", service: inc.service?.summary ?? inc.service ?? "",
+                                 url: inc.html_url || inc.url || "", customer: customer ?? null });
+    store.set("events", [ev, ...this.events()].slice(0, 300));
+  },
+  las() { return store.get("las", null); },
+  overrides() { return store.get("overrides", []).filter(o => new Date(o.end) > new Date()); },
+
+  async pd(method, path, { params, body } = {}) {
+    const url = new URL(PD_API + path);
+    for (const [k, v] of Object.entries(params || {})) {
+      for (const item of Array.isArray(v) ? v : [v]) url.searchParams.append(k, item);
+    }
+    const headers = { Authorization: "Token token=" + this.token, Accept: "application/vnd.pagerduty+json;version=2" };
+    if (method !== "GET") {
+      headers["Content-Type"] = "application/json";
+      if (this.fromEmail) headers.From = this.fromEmail;
+    }
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 20000);
+    let r;
+    try {
+      r = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined, signal: ctl.signal, cache: "no-store" });
+    } catch (e) {
+      throw Object.assign(new Error("PagerDuty unreachable: " + (e.name === "AbortError" ? "timeout" : e.message)), { status: 0 });
+    } finally { clearTimeout(t); }
+    if (!r.ok) {
+      // Same format as pd_error_text()
+      let text = "";
+      try { const err = (await r.json()).error || {}; text = [err.message, ...(err.errors || [])].filter(Boolean).join("; "); }
+      catch { /* not JSON */ }
+      throw Object.assign(new Error(`HTTP ${r.status}: ${text || r.statusText}`), { status: r.status });
+    }
+    return r.status === 204 ? {} : r.json().catch(() => ({}));
+  },
+
+  async fetchIncidents(status) {
+    const out = [];
+    for (let offset = 0; ; ) {
+      const data = await this.pd("GET", "/incidents", { params: { "statuses[]": status, limit: 100, offset } });
+      const page = data.incidents || [];
+      out.push(...page);
+      if (!data.more || !page.length) return out;
+      offset += page.length;
+    }
+  },
+
+  async findMe() {
+    try {
+      const r = await this.pd("GET", "/users/me");
+      this.me = r.user.id; this.myName = r.user.name || "";
+    } catch (e) {
+      if (e.status === 0) return;   // network: try again next poll
+      if (this.fromEmail) {
+        try {
+          const r = await this.pd("GET", "/users", { params: { query: this.fromEmail } });
+          const u = (r.users || []).find(u => (u.email || "").toLowerCase() === this.fromEmail.toLowerCase()) || {};
+          this.me = u.id || null; this.myName = u.name || "";
+        } catch { return; }
+      } else this.me = null;
+    }
+  },
+
+  async fetchShifts() {
+    const r = await this.pd("GET", "/oncalls", { params: { "user_ids[]": this.me, limit: 100 } });
+    const shifts = {};
+    for (const o of r.oncalls || []) if (o.schedule) shifts[o.schedule.id] = { schedule: o.schedule.summary || "", end: o.end };
+    return shifts;
+  },
+
+  // As on_call_now(): at most once per minute, keep the last known value on errors
+  async onCallNow() {
+    if (Math.abs(Date.now() - this.onCall.at) < 60000) return this.onCall.value;
+    if (this.me === undefined) await this.findMe();
+    let shifts = {}, value = true;
+    if (this.me) {
+      try {
+        shifts = await this.fetchShifts();
+        value = Object.keys(shifts).length > 0;
+        this.onCall.known = true;
+      } catch {
+        if (this.onCall.known) { this.onCall.at = Date.now(); return this.onCall.value; }
+        value = true;
+      }
+    }
+    Object.assign(this.onCall, { at: Date.now(), value });
+    const list = Object.values(shifts), ends = list.map(s => s.end).filter(Boolean).sort();
+    this.s.shift = list.length ? { schedules: list.map(s => s.schedule), end: ends.length ? ends[ends.length - 1] : null } : null;
+    this.s.overrides = this.overrides();
+    return value;
+  },
+
+  inWindow(s) {
+    if (!s.ONLY_IN_WINDOW) return true;
+    const d = new Date();
+    if (s.WEEKDAYS_ONLY && (d.getDay() === 0 || d.getDay() === 6)) return false;
+    return s.START_HOUR <= d.getHours() && d.getHours() < s.END_HOUR;
+  },
+
+  matchCustomer(title, customers) {
+    const t = norm(title);
+    return customers.find(c => norm(c) && t.includes(norm(c))) || null;
+  },
+  classify(inc, customers, svc) {
+    const customer = this.matchCustomer(inc.title, customers);
+    const name = (inc.service?.summary || "").toLowerCase();
+    if (svc.length && !svc.some(f => name.includes(f))) return ["service", customer];
+    return customer ? ["alarm", customer] : ["customer", null];
+  },
+  wantsSilent(decision, customer, silentFor) {
+    if (silentFor === "all") return decision === "service" || decision === "customer";
+    if (silentFor === "customers") return decision === "service" && customer !== null;
+    return false;
+  },
+
+  async pollOnce() {
+    const s = this.settings(), customers = this.customers(), svc = this.serviceFilter();
+    const incidents = await this.fetchIncidents("triggered");
+    const seen = new Set(store.get("seen", []));
+    const view = [], fresh = [];
+    for (const inc of incidents) {
+      const [decision, customer] = this.classify(inc, customers, svc);
+      const silent = this.wantsSilent(decision, customer, s.SILENT_FOR);
+      let alarmed = decision === "alarm" && seen.has(inc.id);
+      if (!seen.has(inc.id)) {
+        if (decision === "alarm") { alarmed = true; fresh.push(inc); this.addEvent("alarm", "Loud", inc, customer); }
+        else if (silent) this.addEvent("silent", "Silent", inc, customer);
+        else if (decision === "service") this.addEvent("service", "Service filtered", inc, customer);
+        else this.addEvent("customer", "Not your customer", inc);
+        seen.add(inc.id);
+      }
+      view.push({
+        id: inc.id, title: inc.title || "", service: inc.service?.summary || "", created_at: inc.created_at || "",
+        url: inc.html_url || "", decision: silent && (decision === "service" || decision === "customer") ? "silent" : decision,
+        customer, alarmed,
+        assigned_me: !!this.me && (inc.assignments || []).some(a => a.assignee?.id === this.me),
+      });
+    }
+    const current = new Set(incidents.map(i => i.id));
+    store.set("seen", [...seen].filter(id => current.has(id)));
+    view.sort((a, b) => (b.created_at > a.created_at) - (b.created_at < a.created_at));
+    Object.assign(this.s, { last_poll: nowStr(), last_error: null, customers, incidents: view });
+    if (fresh.length && this.alertHook) this.alertHook(fresh.length);
+
+    if (this.me === undefined) await this.findMe();
+    this.s.acked = await this.fetchAcked(customers, !!this.las());
+    this.s.acked_mine = !!this.me;
+  },
+
+  async fetchAcked(customers, allMine) {
+    const out = [];
+    for (const inc of await this.fetchIncidents("acknowledged")) {
+      const customer = this.matchCustomer(inc.title, customers);
+      const acks = inc.acknowledgements || [];
+      const mine = !!this.me && acks.some(a => a.acknowledger?.id === this.me);
+      if (this.me && !mine && !customer && !allMine) continue;
+      const by = [], ids = new Set();
+      for (const a of acks) {
+        const who = a.acknowledger || {};
+        if (ids.has(who.id)) continue;
+        ids.add(who.id);
+        by.push({ name: who.summary || "?", me: who.id === this.me });
+      }
+      const last = acks[acks.length - 1] || {};
+      out.push({
+        id: inc.id, title: inc.title || "", service: inc.service?.summary || "", url: inc.html_url || "", customer, mine,
+        acked_by: by, assigned: (inc.assignments || []).map(a => a.assignee?.summary).filter(Boolean),
+        acked_at: last.at || inc.updated_at || inc.created_at || "",
+      });
+    }
+    return out.sort((a, b) => (b.acked_at > a.acked_at) - (b.acked_at < a.acked_at));
+  },
+
+  // Main loop, same order as main() in pd_filter.py
+  async tick() {
+    clearTimeout(this.timer);
+    let wait = 60;
+    try {
+      await this.endLasIfDue();
+      const s = this.settings();
+      let reason = null;
+      if (!this.inWindow(s)) reason = "outside time window";
+      else if (!(await this.onCallNow()) && s.ONLY_ON_CALL) reason = "no schedule active";
+      if (reason !== this.paused) {
+        this.addEvent("info", reason ? "Paused: " + reason : "Active again");
+        this.paused = reason;
+      }
+      this.s.paused = reason;
+      if (reason) this.s.customers = this.customers();
+      else {
+        wait = s.POLL_SECONDS;
+        try { await this.pollOnce(); }
+        catch (e) { this.addEvent("error", "Error while polling: " + e.message); this.s.last_error = e.message; }
+      }
+    } finally {
+      this.timer = setTimeout(() => this.tick(), wait * 1000);
+    }
+  },
+
+  async state() {
+    const s = this.settings();
+    return { ...this.s, las: this.lasView(), overrides: this.overrides(), settings: s, override_user: s.OVERRIDE_USER,
+             service_filter: this.serviceFilter(), poll_seconds: s.POLL_SECONDS, events: this.events(), all_mine: !!this.las() };
+  },
+  lasView() { const l = this.las(); return l ? { mode: l.mode || "las", until: l.until } : null; },
+
+  async setStatus(id, status, kind, label) {
+    await this.pd("PUT", "/incidents/" + encodeURIComponent(id), { body: { incident: { type: "incident_reference", status } } });
+    const inc = this.s.incidents.find(i => i.id === id) || this.s.acked.find(i => i.id === id);
+    this.s.incidents = this.s.incidents.filter(i => i.id !== id);
+    this.s.acked = this.s.acked.filter(i => i.id !== id);
+    // Show at the top right away; names of others who acked stay
+    if (status === "acknowledged" && inc) {
+      const by = (inc.acked_by || []).filter(a => !a.me);
+      this.s.acked.unshift({ id: inc.id, title: inc.title, service: inc.service, url: inc.url, customer: inc.customer,
+        acked_at: new Date().toISOString(), mine: true, acked_by: [...by, { name: this.myName || "me", me: true }],
+        assigned: inc.assigned || [] });
+    }
+    if (inc) this.addEvent(kind, "✓ " + label, { title: inc.title, service: inc.service, url: inc.url }, inc.customer);
+    return { ok: true };
+  },
+
+  async handOver() {
+    const s = this.settings();
+    if (!s.OVERRIDE_USER) throw new Error("No user to hand off to (Settings)");
+    if (this.me === undefined) await this.findMe();
+    if (!this.me) throw new Error("Own PagerDuty user unknown (enter your email for an account key)");
+    const overrides = this.overrides();
+    const shifts = await this.fetchShifts();
+    if (!Object.keys(shifts).length) throw new Error("You are not on call right now");
+    const r = await this.pd("GET", "/users", { params: { query: s.OVERRIDE_USER } });
+    const wanted = s.OVERRIDE_USER.toLowerCase();
+    const user = (r.users || []).find(u => [(u.name || "").toLowerCase(), (u.email || "").toLowerCase()].includes(wanted));
+    if (!user) throw new Error(`PagerDuty user "${s.OVERRIDE_USER}" not found`);
+    const start = new Date().toISOString(), done = [];
+    for (const [scheduleId, sh] of Object.entries(shifts)) {
+      if (!sh.end) throw new Error(`On-call in ${sh.schedule} has no end, not handed off`);
+      const body = await this.pd("POST", `/schedules/${scheduleId}/overrides`,
+        { body: { overrides: [{ start, end: sh.end, user: { id: user.id, type: "user_reference" } }] } });
+      for (const item of Array.isArray(body) ? body : [body]) {
+        if ((item.status ?? 201) >= 300) throw new Error(`${sh.schedule}: ${(item.errors || ["rejected"]).join("; ")}`);
+        if (item.override?.id) {
+          overrides.push({ schedule_id: scheduleId, schedule: sh.schedule, id: item.override.id, end: sh.end });
+          store.set("overrides", overrides);
+        }
+      }
+      done.push(`${sh.schedule} until ${hhmm(sh.end)}`);
+    }
+    this.onCall.at = 0;
+    return `On-call handed off to ${s.OVERRIDE_USER}: ${done.join(", ")}`;
+  },
+
+  async takeBack() {
+    const overrides = this.overrides();
+    if (!overrides.length) throw new Error("No handoff found");
+    const done = [];
+    try {
+      for (const o of [...overrides]) {
+        try { await this.pd("DELETE", `/schedules/${o.schedule_id}/overrides/${o.id}`); }
+        catch (e) { if (e.status !== 404) throw new Error(`${o.schedule}: ${e.message}`); }
+        overrides.splice(overrides.indexOf(o), 1);
+        done.push(o.schedule);
+      }
+    } finally { store.set("overrides", overrides); }
+    this.onCall.at = 0;
+    return "On-call taken back: " + done.join(", ");
+  },
+
+  async startLas(mode) {
+    if (this.las()) throw new Error("PagerDuty notifications are already on");
+    const s = this.settings();
+    let until = null;
+    if (mode === "las") {
+      until = new Date(); until.setHours(s.LAS_END_HOUR, 0, 0, 0);
+      if (until <= new Date()) throw new Error(`LAS end ${s.LAS_END_HOUR}:00 has already passed today`);
+    }
+    const untilText = until ? until.toISOString() : null;
+    if (this.me === undefined) await this.findMe();
+    if (!this.me) throw new Error("Own PagerDuty user unknown (enter your email for an account key)");
+    const base = `/users/${this.me}`, created = [];
+    let devices;
+    try {
+      const contacts = ((await this.pd("GET", base + "/contact_methods")).contact_methods || []).filter(c => CONTACT_TYPES[c.type]);
+      const wanted = s.LAS_CONTACTS ? new Set(s.LAS_CONTACTS.split(",")) : null;
+      devices = wanted ? contacts.filter(c => wanted.has(c.id)) : contacts.filter(c => c.type === "push_notification_contact_method");
+      if (!devices.length) throw new Error(wanted ? "None of the selected contacts exists in PagerDuty anymore (check Settings)"
+                                                  : "No device registered for PagerDuty push (log in to the PagerDuty app)");
+      const urgencies = { high: ["high"], low: ["low"], both: ["high", "low"] }[s.LAS_URGENCY];
+      // Several rules per contact and urgency are possible (e.g. immediately and after 5 min)
+      const existing = {};
+      for (const n of (await this.pd("GET", base + "/notification_rules")).notification_rules || []) {
+        (existing[n.contact_method?.id + "|" + n.urgency] ||= []).push(n.id);
+      }
+      for (const c of devices) {
+        for (const urgency of urgencies) {
+          const ids = existing[c.id + "|" + urgency];
+          if (ids) {
+            if (c.type !== "push_notification_contact_method") continue;   // never delete call/SMS/email rules
+            // Delete push rules and recreate below as an immediate rule
+            for (const ruleId of ids) {
+              try { await this.pd("DELETE", `${base}/notification_rules/${ruleId}`); }
+              catch (e) { if (e.status !== 404) throw new Error(`Rule ${ruleId}: ${e.message}`); }
+            }
+          }
+          const r = await this.pd("POST", base + "/notification_rules", { body: { notification_rule: {
+            type: "assignment_notification_rule", start_delay_in_minutes: 0, urgency,
+            contact_method: { id: c.id, type: c.type } } } });
+          created.push(r.notification_rule.id);
+        }
+      }
+    } catch (e) {
+      // Don't leave half-created rules behind (call/SMS/email rules stay)
+      store.set("las", { mode, until: untilText, rules: created });
+      await this.stopLas().catch(() => {});
+      throw new Error("PagerDuty error: " + e.message);
+    }
+    store.set("las", { mode, until: untilText, rules: created });
+    const names = devices.map(c => `${CONTACT_TYPES[c.type]} ${c.summary || ""}`.trim()).join(", ");
+    return `PagerDuty notifications on (${until ? "LAS until " + hhmm(until) : "no end"}, ${URGENCY_TEXT[s.LAS_URGENCY]}): ${names}`;
+  },
+
+  async stopLas() {
+    const las = this.las();
+    if (!las) throw new Error("PagerDuty notifications are not on");
+    if (this.me === undefined) await this.findMe();
+    for (const ruleId of [...las.rules]) {
+      try { await this.pd("DELETE", `/users/${this.me}/notification_rules/${ruleId}`); }
+      catch (e) { if (e.status !== 404) { store.set("las", las); throw new Error(`Rule ${ruleId}: ${e.message}`); } }
+      las.rules.splice(las.rules.indexOf(ruleId), 1);
+      store.set("las", las);
+    }
+    store.set("las", undefined);
+    return "PagerDuty notifications off: rules removed";
+  },
+
+  async endLasIfDue() {
+    const las = this.las();
+    if (!las || !las.until || new Date(las.until) > new Date()) return;
+    try { this.addEvent("info", await this.stopLas()); }
+    catch (e) { this.addEvent("error", "Ending LAS automatically failed, retrying later: " + e.message); }
+  },
+
+  // Same checks as parse_setting()
+  saveSettings(changes) {
+    const cur = this.settings(), next = { ...cur };
+    for (const [key, raw] of Object.entries(changes)) {
+      if (!(key in DEFAULTS)) throw new Error(`${key} cannot be changed`);
+      if (typeof DEFAULTS[key] === "boolean") {
+        if (typeof raw !== "boolean") throw new Error(`${key}: yes/no expected`);
+        next[key] = raw; continue;
+      }
+      const text = String(raw).split(/\s+/).filter(Boolean).join(" ");
+      if (text.length > 200) throw new Error(`${key}: too long`);
+      if (ENUMS[key]) {
+        const v = LEGACY[key][text] || text;
+        if (!ENUMS[key].includes(v)) throw new Error(`${key}: allowed: ${ENUMS[key].join(", ")}`);
+        next[key] = v;
+      } else if (typeof DEFAULTS[key] === "number") {
+        const n = Number(text), [lo, hi] = key === "POLL_SECONDS" ? [5, 3600] : [0, 24];
+        if (!Number.isInteger(n) || n < lo || n > hi) throw new Error(`${key}: allowed: ${lo} to ${hi}`);
+        next[key] = n;
+      } else if (key === "SERVICE_FILTER") {
+        next[key] = text.split(";").map(x => x.trim()).filter(Boolean).join(";");
+      } else if (key === "LAS_CONTACTS") {
+        const ids = text.split(",").map(x => x.trim()).filter(Boolean);
+        if (!ids.every(i => ID_RE.test(i))) throw new Error("LAS_CONTACTS: invalid contact ID");
+        next[key] = ids.join(",");
+      } else next[key] = text;
+    }
+    store.set("settings", next);
+    this.onCall.at = 0;
+    return { ok: true };
+  },
+
+  editCustomers(add, remove) {
+    const list = store.get("customers", []);
+    if (add !== undefined) {
+      const name = add.split(/\s+/).filter(Boolean).join(" ");
+      if (!name || name.startsWith("#") || name.length > 100) throw new Error("Invalid customer name");
+      if (list.some(c => norm(c) === norm(name))) throw new Error(`${name} is already in the list`);
+      list.push(name);
+    } else {
+      const kept = list.filter(c => norm(c) !== norm(remove));
+      if (kept.length === list.length) throw new Error(`${remove} is not in the list`);
+      list.splice(0, list.length, ...kept);
+    }
+    store.set("customers", list);
+    this.s.customers = this.customers();
+    return { ok: true };
+  },
+
+  async call(path, body = {}) {
+    const text = async fn => ({ ok: true, text: await fn() });
+    let res;
+    switch (path) {
+      case "/api/ack": res = await this.setStatus(body.id, "acknowledged", "ack", "Acknowledged"); break;
+      case "/api/resolve": res = await this.setStatus(body.id, "resolved", "resolve", "Resolved"); break;
+      case "/api/override": res = await text(() => this.handOver()); break;
+      case "/api/override/remove": res = await text(() => this.takeBack()); break;
+      case "/api/las/start": res = await text(() => this.startLas("las")); break;
+      case "/api/shift/start": res = await text(() => this.startLas("shift")); break;
+      case "/api/las/stop": res = await text(() => this.stopLas()); break;
+      case "/api/settings": res = this.saveSettings(body); break;
+      case "/api/customers/add": res = this.editCustomers(body.name); break;
+      case "/api/customers/remove": res = this.editCustomers(undefined, body.name); break;
+      default: throw new Error("Unknown action " + path);
+    }
+    if (res.text && !["/api/ack", "/api/resolve"].includes(path)) this.addEvent("info", res.text);
+    return res;
+  },
+  async contacts() {
+    if (this.me === undefined) await this.findMe();
+    if (!this.me) throw new Error("Own PagerDuty user unknown (enter your email for an account key)");
+    const r = await this.pd("GET", `/users/${this.me}/contact_methods`);
+    return (r.contact_methods || []).filter(c => CONTACT_TYPES[c.type]).map(c =>
+      ({ id: c.id, kind: CONTACT_TYPES[c.type], label: c.label || c.summary || "", address: c.address || "" }));
+  },
+
+  async connect(token, fromEmail) {
+    this.token = token; this.fromEmail = fromEmail || "";
+    const r = await this.pd("GET", "/users/me").catch(e => {
+      if (e.status === 401) throw new Error("PagerDuty rejected the key (401)");
+      if (e.status === 0) throw e;
+      return null;   // account key: /users/me is not allowed, user comes from the email
+    });
+    if (r) { this.me = r.user.id; this.myName = r.user.name || ""; }
+    else { this.me = undefined; await this.findMe(); }
+    this.s.started = nowStr();
+    this.addEvent("info", "Console connected");
+    this.tick();
+  },
+};
+
+/* ================= UI ================= */
+let B = null;               // active backend
+let lastData = null;
+let filter = store.get("view", "all");
+let query = "";
+let focusedId = null;
+const selected = new Set();
+const collapsed = new Set(store.get("collapsed", []));
+const VIEW_TITLES = { all: "All open", alarm: "Loud", silent: "Silent", service: "Other service", customer: "Not my customer" };
+const LABEL = { alarm: "Loud", silent: "Silent", service: "Other service", customer: "Not my customer", pending: "Retrying",
+                error: "Error", info: "Info", ack: "Acknowledged", resolve: "Resolved" };
+const ICON = { alarm: "", silent: "◐", service: "◇", customer: "·", pending: "!", acked: "✓" };
+
+function toast(text, isError) {
+  const t = document.createElement("div");
+  t.className = "toast" + (isError ? " err" : "");
+  t.textContent = text;
+  $("toasts").appendChild(t);
+  setTimeout(() => t.remove(), isError ? 7000 : 3200);
+}
+
+const matchesQuery = i => !query || norm(`${i.title} ${i.customer || ""} ${i.service}`).includes(query);
+const custCell = c => `<div class="cust">${c ? `<span>${esc(c)}</span>` : '<span class="none">—</span>'}</div>`;
+const titleCell = (i, extra = "") => `<div class="title">
+  <a href="${esc(i.url)}" target="_blank" rel="noopener" title="${esc(i.title)}">${esc(i.title)}</a>
+  <div class="meta">${esc(i.service)}${extra}</div></div>`;
+const check = i => `<input type="checkbox" class="sel-one" data-id="${esc(i.id)}"${selected.has(i.id) ? " checked" : ""}>`;
+
+function incRow(i) {
+  return `<div class="row ${i.decision === "alarm" ? "alarm" : ""}" data-id="${esc(i.id)}" data-url="${esc(i.url)}">
+    ${check(i)}
+    <div class="ico ${esc(i.decision)}" title="${esc(LABEL[i.decision] || i.decision)}">${ICON[i.decision] ?? ""}</div>
+    <div class="age mono" title="${esc(i.created_at)}">${age(i.created_at)}</div>
+    ${custCell(i.customer)}
+    ${titleCell(i, i.assigned_me ? '<span class="tag">YOU</span>' : "")}
+    <div class="who"></div>
+    <div class="actions">
+      <button class="btn sm ok" data-action="ack" data-id="${esc(i.id)}">Ack</button>
+      <button class="btn sm danger" data-action="resolve" data-id="${esc(i.id)}">Resolve</button>
+    </div></div>`;
+}
+function ackedRow(i) {
+  const names = new Set((i.acked_by || []).map(a => a.name));
+  const other = (i.assigned || []).filter(n => !names.has(n));
+  const by = (i.acked_by || []).map(a => `<span class="${a.me ? "me" : ""}">${esc(a.name)}</span>`).join(", ") || "?";
+  return `<div class="row" data-id="${esc(i.id)}" data-url="${esc(i.url)}">
+    ${check(i)}
+    <div class="ico acked">✓</div>
+    <div class="age mono" title="${esc(i.acked_at)}">${age(i.acked_at)}</div>
+    ${custCell(i.customer)}
+    ${titleCell(i, other.length ? ` · assigned: ${esc(other.join(", "))}` : "")}
+    <div class="who" title="Acked by">${by}</div>
+    <div class="actions">
+      ${i.mine ? "" : `<button class="btn sm ok" data-action="ack" data-id="${esc(i.id)}" title="Acknowledge yourself as well">Ack</button>`}
+      <button class="btn sm danger" data-action="resolve" data-id="${esc(i.id)}">Resolve</button>
+    </div></div>`;
+}
+
+function render(d) {
+  lastData = d;
+  const inc = d.incidents || [];
+  const count = k => inc.filter(i => i.decision === k).length;
+  $("nAll").textContent = inc.length;
+  $("nAlarm").textContent = count("alarm");
+  $("nSilent").textContent = count("silent");
+  $("nService").textContent = count("service");
+  $("nCustomer").textContent = count("customer");
+  document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.dataset.f === filter));
+  $("viewTitle").textContent = VIEW_TITLES[filter];
+
+  // Status
+  const dot = $("dot"), st = $("status");
+  if (d.last_error) { dot.className = "dot err"; st.textContent = "Error"; }
+  else if (d.paused) { dot.className = "dot pause"; st.textContent = "Paused · " + d.paused; }
+  else { dot.className = "dot on"; st.textContent = B.kind === "mac" ? "Filter running" : "Polling"; }
+  $("errBanner").hidden = !d.last_error;
+  $("errBanner").textContent = d.last_error ? "PagerDuty error: " + d.last_error : "";
+  $("lastPoll").textContent = d.last_poll ? d.last_poll.slice(11) : "–";
+  $("svcFilter").textContent = d.settings?.SERVICE_FILTER || (d.service_filter || []).join(", ") || "all services";
+  $("viewSub").textContent = d.last_poll ? `· updated ${d.last_poll.slice(11, 16)}` : "";
+
+  // Customers
+  $("customers").innerHTML = (d.customers || []).map(c => `<span class="chip">${esc(c)}${d.customers_editable
+    ? `<button data-name="${esc(c)}" title="Remove ${esc(c)}">×</button>` : ""}</span>`).join("")
+    || '<span class="hint">No customers yet</span>';
+  $("addCustomer").hidden = !d.customers_editable;
+  $("pawLink").hidden = !d.paw;
+
+  // On-call, handoff, LAS
+  const sh = d.shift;
+  $("shiftLabel").textContent = sh ? sh.schedules.join(", ") : "Not on call";
+  $("shiftEnd").textContent = sh?.end ? "until " + hhmm(sh.end) : "";
+  $("override").hidden = !sh;
+  $("override").textContent = `Hand off to ${d.override_user || "…"}`;
+  const ov = d.overrides || [];
+  $("takeBackBox").hidden = !ov.length;
+  $("handedOver").textContent = `Handed off to ${d.override_user}: ` + ov.map(o => `${o.schedule} until ${hhmm(o.end)}`).join(", ");
+  const las = $("las");
+  las.textContent = !d.las ? "off" : d.las.mode === "shift" ? "on · no end" : "on · until " + hhmm(d.las.until);
+  las.className = d.las ? "pill-on" : "muted";
+  const lasBtn = $("lasToggle");
+  lasBtn.textContent = d.las ? "Turn off" : `LAS until ${pad(d.settings?.LAS_END_HOUR ?? 18)}:00`;
+  lasBtn.dataset.on = d.las ? "1" : "";
+  $("shiftPush").hidden = !!d.las;
+  fillSettings(d.settings);
+
+  // Lists
+  const rows = inc.filter(i => (filter === "all" || i.decision === filter) && matchesQuery(i));
+  const isMine = i => i.customer || d.all_mine;
+  const mine = rows.filter(isMine).sort((a, b) => !!b.assigned_me - !!a.assigned_me);
+  const others = rows.filter(i => !isMine(i));
+  const inCat = filter !== "all" || query ? " for this filter" : "";
+  $("mineTitle").textContent = d.all_mine ? "All customers · open" : "My customers · open";
+  $("mineCount").textContent = mine.length;
+  $("mine").innerHTML = mine.map(incRow).join("") || `<div class="empty">Nothing open${inCat}. ✨</div>`;
+  $("othersBox").hidden = !!d.all_mine;
+  $("othersCount").textContent = others.length;
+  $("incidents").innerHTML = others.map(incRow).join("") || `<div class="empty">Nothing open${inCat}.</div>`;
+
+  const acked = (d.acked || []).filter(matchesQuery).sort((a, b) => b.mine - a.mine);
+  $("ackedTitle").textContent = !d.acked_mine ? "Acknowledged · all (own user unknown)"
+    : d.all_mine ? "Acknowledged · all customers" : "Acknowledged · mine and my customers";
+  $("ackedCount").textContent = acked.length;
+  $("acked").innerHTML = acked.map(ackedRow).join("") || '<div class="empty">Nothing acknowledged.</div>';
+
+  const ev = d.events || [];
+  $("eventsCount").textContent = ev.length;
+  $("events").innerHTML = ev.slice(0, 150).map(e => `<div class="row">
+      <div class="mono muted">${esc(e.time.slice(11, 16))}</div>
+      <div><span class="badge b-${esc(e.kind)}">${esc(LABEL[e.kind] || e.kind)}</span></div>
+      ${e.title !== undefined ? titleCell({ title: e.title, url: e.url, service: e.service },
+          e.kind === "error" ? " · " + esc(e.text) : "") : `<div class="title">${esc(e.text)}</div>`}
+    </div>`).join("") || '<div class="empty">Nothing happened yet.</div>';
+
+  for (const id of ["acked", "incidents", "events"]) $(id).hidden = collapsed.has(id);
+  document.querySelectorAll(".collapse").forEach(b => { b.textContent = collapsed.has(b.dataset.box) ? "show" : "hide"; });
+
+  // Keep only selections and focus that still exist
+  const present = new Set([...inc, ...(d.acked || [])].map(i => i.id));
+  [...selected].forEach(id => { if (!present.has(id)) selected.delete(id); });
+  if (focusedId && !present.has(focusedId)) focusedId = null;
+  paintRows();
+  updateSelection();
+  paintFavicon(mine.length, mine.some(i => i.decision === "alarm"));
+}
+
+function paintRows() {
+  document.querySelectorAll(".list .row[data-id]").forEach(r => {
+    r.classList.toggle("picked", selected.has(r.dataset.id));
+    r.classList.toggle("focus", r.dataset.id === focusedId);
+  });
+}
+
+/* ---------- Selection and bulk ---------- */
+const canAck = () => new Set([...(lastData?.incidents || []), ...(lastData?.acked || []).filter(i => !i.mine)].map(i => i.id));
+function updateSelection() {
+  document.querySelectorAll(".sel-all").forEach(all => {
+    const boxes = [...$(all.dataset.list).querySelectorAll(".sel-one")];
+    const n = boxes.filter(b => b.checked).length;
+    all.checked = boxes.length > 0 && n === boxes.length;
+    all.indeterminate = n > 0 && n < boxes.length;
+    all.disabled = !boxes.length;
+  });
+  const ackable = [...selected].filter(id => canAck().has(id)).length;
+  $("bulk").hidden = !selected.size;
+  $("bulkCount").textContent = `${selected.size} selected`;
+  $("bulkAck").textContent = `Ack (${ackable})`;
+  $("bulkAck").disabled = !ackable;
+  $("bulkResolve").textContent = `Resolve (${selected.size})`;
+}
+function toggleSelect(id, on) {
+  (on ?? !selected.has(id)) ? selected.add(id) : selected.delete(id);
+  const cb = document.querySelector(`.sel-one[data-id="${CSS.escape(id)}"]`);
+  if (cb) cb.checked = selected.has(id);
+  paintRows();
+  updateSelection();
+}
+["mine", "acked", "incidents"].forEach(id => $(id).addEventListener("change", ev => {
+  const cb = ev.target.closest(".sel-one");
+  if (cb) toggleSelect(cb.dataset.id, cb.checked);
+}));
+document.querySelectorAll(".sel-all").forEach(all => all.addEventListener("change", () => {
+  $(all.dataset.list).querySelectorAll(".sel-one").forEach(cb => {
+    cb.checked = all.checked;
+    all.checked ? selected.add(cb.dataset.id) : selected.delete(cb.dataset.id);
+  });
+  paintRows();
+  updateSelection();
+}));
+$("bulkClear").addEventListener("click", () => { selected.clear(); paintRows(); updateSelection(); });
+
+function dropLocally(id, action) {
+  if (!lastData) return;
+  lastData.incidents = lastData.incidents.filter(i => i.id !== id);
+  if (action === "resolve") lastData.acked = (lastData.acked || []).filter(i => i.id !== id);
+}
+// Several incidents through the normal actions, 3 at a time
+async function runOn(action, ids) {
+  if (action === "ack") { const ok = canAck(); ids = ids.filter(id => ok.has(id)); }
+  if (!ids.length) return;
+  document.querySelectorAll("#bulk button").forEach(b => { b.disabled = true; });
+  const errors = [], queue = [...ids];
+  const worker = async () => {
+    for (let id; (id = queue.shift()); ) {
+      try { await B.call("/api/" + action, { id }); selected.delete(id); dropLocally(id, action); }
+      catch (e) { errors.push(e.message); }
+    }
+  };
+  await Promise.all([worker(), worker(), worker()]);
+  document.querySelectorAll("#bulk button").forEach(b => { b.disabled = false; });
+  const done = ids.length - errors.length, verb = action === "resolve" ? "resolved" : "acknowledged";
+  if (errors.length) toast(`${done} of ${ids.length} ${verb}. Errors: ${[...new Set(errors)].join("; ")}`, true);
+  else toast(ids.length === 1 ? `✓ ${verb[0].toUpperCase() + verb.slice(1)}` : `✓ ${done} ${verb}`);
+  refresh();
+}
+$("bulkAck").addEventListener("click", () => runOn("ack", [...selected]));
+$("bulkResolve").addEventListener("click", () => runOn("resolve", [...selected]));
+["mine", "acked", "incidents"].forEach(id => $(id).addEventListener("click", ev => {
+  const btn = ev.target.closest("button[data-action]");
+  const row = ev.target.closest(".row[data-id]");
+  if (row && !ev.target.closest("a, input, button")) { focusedId = row.dataset.id; paintRows(); }
+  if (!btn) return;
+  btn.closest(".actions").querySelectorAll("button").forEach(b => { b.disabled = true; });
+  runOn(btn.dataset.action, [btn.dataset.id]);
+}));
+
+/* ---------- Sidebar actions ---------- */
+async function sideAction(path, label, btn) {
+  btn.disabled = true;
+  try { const res = await B.call(path, {}); toast("✓ " + res.text); refresh(); }
+  catch (e) { toast(label + " failed: " + e.message, true); }
+  finally { btn.disabled = false; }
+}
+$("override").addEventListener("click", e => sideAction("/api/override", "Hand off", e.currentTarget));
+$("takeBack").addEventListener("click", e => sideAction("/api/override/remove", "Take back", e.currentTarget));
+$("lasToggle").addEventListener("click", e => sideAction(e.currentTarget.dataset.on ? "/api/las/stop" : "/api/las/start",
+  "PagerDuty notifications", e.currentTarget));
+$("shiftPush").addEventListener("click", e => sideAction("/api/shift/start", "PagerDuty notifications", e.currentTarget));
+
+$("views").addEventListener("click", ev => {
+  const v = ev.target.closest(".view");
+  if (!v) return;
+  setView(v.dataset.f);
+});
+function setView(f) { filter = f; store.set("view", f); if (lastData) render(lastData); }
+document.querySelectorAll(".collapse").forEach(b => b.addEventListener("click", () => {
+  collapsed.has(b.dataset.box) ? collapsed.delete(b.dataset.box) : collapsed.add(b.dataset.box);
+  store.set("collapsed", [...collapsed]);
+  if (lastData) render(lastData);
+}));
+$("search").addEventListener("input", ev => { query = norm(ev.target.value); if (lastData) render(lastData); });
+
+async function editCustomer(action, name) { await B.call("/api/customers/" + action, { name }); refresh(); }
+$("addCustomer").addEventListener("submit", async ev => {
+  ev.preventDefault();
+  const input = $("newCustomer"), name = input.value.trim();
+  if (!name) return;
+  try { await editCustomer("add", name); input.value = ""; toast("✓ " + name + " added"); }
+  catch (e) { toast("Add failed: " + e.message, true); }
+});
+$("customers").addEventListener("click", async ev => {
+  const btn = ev.target.closest("button[data-name]");
+  if (!btn) return;
+  btn.disabled = true;
+  try { await editCustomer("remove", btn.dataset.name); toast("✓ " + btn.dataset.name + " removed"); }
+  catch (e) { btn.disabled = false; toast("Remove failed: " + e.message, true); }
+});
+
+/* ---------- Settings drawer ---------- */
+const form = $("settings");
+let settingsDirty = false;
+function fillSettings(s) {
+  if (!s || settingsDirty) return;
+  for (const [key, value] of Object.entries(s)) {
+    const el = form.elements[key];
+    if (!el) continue;
+    if (el.type === "checkbox") el.checked = value; else el.value = value;
+  }
+  markContacts();
+}
+function markContacts() {
+  const ids = form.elements.LAS_CONTACTS.value.split(",").filter(Boolean);
+  $("contactList").querySelectorAll("input[data-contact]").forEach(cb => { cb.checked = ids.includes(cb.dataset.contact); });
+}
+async function loadContacts() {
+  const list = $("contactList");
+  try {
+    const contacts = await B.contacts();
+    list.innerHTML = contacts.map(c => `<label class="check"><input type="checkbox" data-contact="${esc(c.id)}">
+      ${esc(c.kind)}: ${esc(c.label)}${c.address && c.kind !== "Push" ? ` <span class="hint">(${esc(c.address)})</span>` : ""}</label>`).join("")
+      || "No contacts found in PagerDuty";
+    list.className = contacts.length ? "" : "hint";
+    markContacts();
+  } catch (e) { list.textContent = "Contacts not loaded: " + e.message; }
+}
+$("contactList").addEventListener("change", () => {
+  form.elements.LAS_CONTACTS.value = [...$("contactList").querySelectorAll("input[data-contact]:checked")]
+    .map(cb => cb.dataset.contact).join(",");
+  settingsDirty = true;
+});
+function openPanel(el) { closePanels(); el.hidden = false; $("scrim").hidden = false; }
+function closePanels() {
+  for (const id of ["settings", "help"]) $(id).hidden = true;
+  $("scrim").hidden = true;
+  document.body.classList.remove("nav-open");
+}
+function openSettings() {
+  settingsDirty = false;
+  if (lastData) fillSettings(lastData.settings);
+  if (B.kind === "paw") {
+    $("customerImport").value = store.get("customers", []).join("\n");
+    $("soundOn").checked = store.get("sound", true);
+    $("tokenInfo").textContent = (store.get("token", null) ? "Remembered in this browser" : "Only for this tab") +
+      (Direct.fromEmail ? ` · From: ${Direct.fromEmail}` : "");
+  }
+  openPanel(form);
+  loadContacts();
+}
+$("openSettings").addEventListener("click", openSettings);
+$("closeSettings").addEventListener("click", closePanels);
+$("scrim").addEventListener("click", closePanels);
+form.addEventListener("input", ev => { if (!ev.target.closest("#directSettings")) settingsDirty = true; });
+form.addEventListener("submit", async ev => {
+  ev.preventDefault();
+  const body = {};
+  for (const el of form.elements) {
+    if (!el.name || el.tagName === "FIELDSET") continue;
+    body[el.name] = el.type === "checkbox" ? el.checked : el.value;
+  }
+  const btn = form.querySelector("button[type=submit]");
+  btn.disabled = true;
+  try {
+    await B.call("/api/settings", body);
+    if (B.kind === "paw") store.set("sound", $("soundOn").checked);
+    settingsDirty = false;
+    toast("✓ Settings saved");
+    closePanels();
+    refresh();
+  } catch (e) { toast("Save failed: " + e.message, true); }
+  finally { btn.disabled = false; }
+});
+$("importCustomers").addEventListener("click", () => {
+  const list = $("customerImport").value.split("\n").map(l => l.trim()).filter(l => l && !l.startsWith("#"));
+  store.set("customers", [...new Map(list.map(c => [norm(c), c])).values()]);
+  Direct.s.customers = Direct.customers();
+  toast(`✓ ${list.length} customers set`);
+  refresh();
+});
+$("forgetToken").addEventListener("click", () => {
+  store.set("token", undefined); store.set("fromEmail", undefined); session.set("token", null);
+  location.reload();
+});
+
+/* ---------- Theme, help, nav ---------- */
+const THEMES = ["auto", "dark", "light"];
+function applyTheme(t) {
+  if (t === "auto") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.dataset.theme = t;
+  $("themeLink").textContent = "Theme: " + t;
+}
+let theme = store.get("theme", "auto");
+applyTheme(theme);
+$("themeLink").addEventListener("click", ev => {
+  ev.preventDefault();
+  theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
+  store.set("theme", theme);
+  applyTheme(theme);
+});
+$("helpLink").addEventListener("click", ev => { ev.preventDefault(); openPanel($("help")); });
+$("menuBtn").addEventListener("click", () => { document.body.classList.add("nav-open"); $("scrim").hidden = false; });
+
+/* ---------- Keyboard ---------- */
+const visibleRows = () => [...document.querySelectorAll(".list:not([hidden]) .row[data-id]")]
+  .filter(r => !r.closest("[hidden]"));
+document.addEventListener("keydown", ev => {
+  if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+  const typing = ev.target.closest("input, textarea, select");
+  if (ev.key === "Escape") {
+    if (typing) { ev.target.blur(); return; }
+    if (!$("scrim").hidden) closePanels();
+    else { selected.clear(); paintRows(); updateSelection(); }
+    return;
+  }
+  if (typing || $("app").hidden) return;
+  if (ev.key === "Enter" && ev.target.closest("button, a")) return;
+  const rows = visibleRows();
+  const idx = rows.findIndex(r => r.dataset.id === focusedId);
+  const focusRow = i => {
+    if (!rows.length) return;
+    const r = rows[Math.max(0, Math.min(rows.length - 1, i))];
+    focusedId = r.dataset.id; paintRows();
+    r.scrollIntoView({ block: "nearest" });
+  };
+  const targets = () => selected.size ? [...selected] : focusedId ? [focusedId] : [];
+  switch (ev.key) {
+    case "j": case "ArrowDown": focusRow(idx + 1); break;
+    case "k": case "ArrowUp": focusRow(idx < 0 ? 0 : idx - 1); break;
+    case "x": if (focusedId) toggleSelect(focusedId); break;
+    case "a": runOn("ack", targets()); break;
+    case "r": runOn("resolve", targets()); break;
+    case "o": case "Enter": {
+      const url = rows[idx]?.dataset.url;
+      if (url) window.open(url, "_blank", "noopener");
+      break;
+    }
+    case "/": $("search").focus(); break;
+    case ",": openSettings(); break;
+    case "?": openPanel($("help")); break;
+    case "1": case "2": case "3": case "4": case "5": setView(Object.keys(VIEW_TITLES)[ev.key - 1]); break;
+    default: return;
+  }
+  ev.preventDefault();
+});
+
+/* ---------- Alerts: favicon count, title, sound (direct mode only) ---------- */
+let faviconKey = "";
+function paintFavicon(n, loud) {
+  const key = n + "|" + loud;
+  if (key === faviconKey) return;
+  faviconKey = key;
+  const c = document.createElement("canvas"); c.width = c.height = 64;
+  const g = c.getContext("2d");
+  const grad = g.createLinearGradient(0, 0, 64, 64);
+  grad.addColorStop(0, loud ? "#ff5d5d" : "#8b7bff"); grad.addColorStop(1, loud ? "#ff9f5d" : "#22d3ee");
+  g.fillStyle = grad;
+  g.beginPath(); g.roundRect ? g.roundRect(2, 2, 60, 60, 16) : g.rect(2, 2, 60, 60); g.fill();
+  g.fillStyle = "#0a0c11"; g.font = "bold 36px system-ui, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
+  g.fillText(n > 99 ? "99" : String(n || "P"), 32, 35);
+  $("favicon").href = c.toDataURL();
+  document.title = n ? `(${n}) PD Console` : "PD Console";
+}
+let audio = null, blinkTimer = null;
+function armAudio() {
+  if (audio) return;
+  try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch { return; }
+  $("soundBanner").hidden = true;
+}
+function beep() {
+  if (!audio || !store.get("sound", true)) return;
+  const t = audio.currentTime;
+  [[880, 0], [1175, .18], [880, .36]].forEach(([f, dt]) => {
+    const o = audio.createOscillator(), v = audio.createGain();
+    o.frequency.value = f; o.type = "sine";
+    v.gain.setValueAtTime(0, t + dt); v.gain.linearRampToValueAtTime(.25, t + dt + .02);
+    v.gain.exponentialRampToValueAtTime(.001, t + dt + .16);
+    o.connect(v).connect(audio.destination); o.start(t + dt); o.stop(t + dt + .18);
+  });
+}
+function alertLoud(n) {
+  beep();
+  toast(`🔔 ${n} new loud incident${n > 1 ? "s" : ""}`, true);
+  clearInterval(blinkTimer);
+  let on = false;
+  blinkTimer = setInterval(() => { on = !on; document.title = on ? "🔔 LOUD · PD Console" : `(${n}) PD Console`; }, 900);
+}
+const stopBlink = () => { clearInterval(blinkTimer); blinkTimer = null; faviconKey = ""; if (lastData) render(lastData); };
+window.addEventListener("focus", () => { if (blinkTimer) stopBlink(); });
+document.addEventListener("pointerdown", () => { armAudio(); if (blinkTimer) stopBlink(); });
+document.addEventListener("keydown", armAudio);
+
+/* ---------- Start ---------- */
+let refreshTimer = null;
+async function refresh() {
+  clearTimeout(refreshTimer);
+  try { render(await B.state()); }
+  catch (e) {
+    $("dot").className = "dot err";
+    $("status").textContent = B.kind === "mac" ? "Filter not running" : "Error";
+  }
+  refreshTimer = setTimeout(refresh, B.kind === "mac" ? 3000 : 2000);
+}
+
+async function serverAvailable() {
+  if (!/^https?:$/.test(location.protocol) || new URLSearchParams(location.search).has("direct")) return false;
+  try {
+    const ctl = new AbortController(); setTimeout(() => ctl.abort(), 3000);
+    return (await fetch("/api/state", { cache: "no-store", signal: ctl.signal })).ok;
+  } catch { return false; }
+}
+
+function startUi() {
+  $("connect").hidden = true;
+  $("app").hidden = false;
+  $("modeBadge").textContent = B.kind === "mac" ? "mac" : "direct";
+  $("classicLink").hidden = B.kind !== "mac";
+  $("directSettings").hidden = B.kind !== "paw";
+  $("settingsHint").textContent = B.kind === "mac" ? "Applies immediately, saved to config.env on the Mac."
+    : "Saved in this browser only.";
+  $("silentLabel").textContent = B.kind === "mac" ? "Silent ntfy notification for" : "Count as silent (no sound)";
+  if (B.kind === "paw") { $("soundBanner").hidden = !!audio || !store.get("sound", true); Direct.alertHook = alertLoud; }
+  refresh();
+}
+
+async function connectDirect(token, fromEmail, remember) {
+  await Direct.connect(token, fromEmail);
+  if (remember) { store.set("token", token); store.set("fromEmail", fromEmail || undefined); }
+  else session.set("token", token);
+  B = Direct;
+  startUi();
+}
+
+function showConnect(err) {
+  $("app").hidden = true;
+  $("connect").hidden = false;
+  $("connectErr").hidden = !err;
+  $("connectErr").textContent = err || "";
+  $("connectForm").elements.token.focus();
+}
+$("connectForm").addEventListener("submit", async ev => {
+  ev.preventDefault();
+  const f = ev.target.elements, btn = ev.target.querySelector("button");
+  btn.disabled = true; btn.textContent = "Connecting…";
+  try { await connectDirect(f.token.value.trim(), f.fromEmail.value.trim(), f.remember.checked); }
+  catch (e) { showConnect(e.message); }
+  finally { btn.disabled = false; btn.textContent = "Connect"; }
+});
+
+(async () => {
+  if (await serverAvailable()) { B = ServerBackend; startUi(); return; }
+  const token = store.get("token", null) || session.get("token");
+  if (!token) return showConnect();
+  try { await connectDirect(token, store.get("fromEmail", ""), !!store.get("token", null)); }
+  catch (e) { showConnect(e.message); }
+})();
+</script>
+</body>
+</html>

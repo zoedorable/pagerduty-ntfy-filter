@@ -49,12 +49,19 @@ The old German commands (`an`, `aus`, `ansicht`) still work.
 
 After changing `config.env`, stop and start once.
 
-## 3. Dashboard
+## 3. Console
 
 `http://localhost:8790` (port configurable via `WEB_PORT`, only reachable from your own
-machine). Shows status, customers, open incidents with their decision and the history;
-the counter tiles at the top filter the table. **Ack** and **Resolve** update the
-incident directly in PagerDuty (without confirmation).
+machine). The sidebar shows status, on-call (hand off / take back), PagerDuty
+notifications (LAS), the views and your customers. The main pane lists the incidents;
+the views (Loud, Silent, Other service, Not my customer) and the search field filter it.
+**Ack** and **Resolve** update the incident directly in PagerDuty (without confirmation).
+The previous dashboard is still available at `http://localhost:8790/classic`.
+
+Keyboard shortcuts (`?` shows them): `j`/`k` move, `x` select, `a` ack, `r` resolve
+(the selection, otherwise the focused row), `o` or Enter opens the incident in
+PagerDuty, `/` search, `1`–`5` views, `,` settings, `Esc` clears the selection.
+The theme link at the bottom of the sidebar switches between auto, dark and light.
 
 At the very top are the open, not yet acknowledged incidents of **your customers**
 (with Ack/Resolve), below them the acknowledged incidents: all that **you** acknowledged
@@ -66,7 +73,7 @@ other customers contains the rest. The tool recognizes your PagerDuty user from 
 personal API key; with an account key, set `PD_FROM_EMAIL` for this, otherwise all
 acknowledged incidents are shown.
 
-Under **Settings** (expand) you can change: silent notifications (`SILENT_FOR`), service
+Under **Settings** you can change: silent notifications (`SILENT_FOR`), service
 filter, "only while on call", override user, time window, poll interval and the selection
 for LAS/shift. Changes apply immediately, without a restart, and are saved to
 `config.env`. API key, ntfy topics and port deliberately stay in the file only.
@@ -87,6 +94,26 @@ open) and **blinks red** while a loud alarm (customer + matching service) isn't
 acknowledged. After updating the files, click ↻ on PD filter in `chrome://extensions`.
 If you change `WEB_PORT`, adjust the port in the three files in `extension/` and reload
 the extension.
+
+### Standalone on the PAW (without Python and ntfy)
+
+`console.html` also works on its own: copy the file to the PAW and open it in Edge or
+Chrome (double click, `file://`). Without the Python filter it talks to the PagerDuty
+API directly from the browser (PagerDuty allows that, CORS). On first open it asks for
+your personal API key; with an account key, also enter your PagerDuty email.
+
+- **Key:** "Remember on this computer" keeps it in the browser's local storage.
+  Pages opened from disk share that storage, so other local HTML files could read it.
+  Settings → "Forget key and disconnect" removes it.
+- **Customers and settings** live in this browser only (Settings → "Customer list"
+  takes a pasted `customers.txt`).
+- **Alerts:** no ntfy. A new loud incident plays a sound (only after you clicked
+  somewhere on the page once, browser rule), blinks the tab title and shows a toast.
+  The favicon shows the number of open incidents of your customers.
+- **LAS and handoff** work the same, but their state is kept in the browser that
+  started them: LAS started on the Mac isn't shown on the PAW and the other way round.
+  LAS ends automatically only while the page is open, otherwise when it's opened next.
+- On the Mac you can test this mode with `http://localhost:8790/?direct=1`.
 
 ## 4. What happens when
 
@@ -146,7 +173,8 @@ The old German config values (`SILENT_FOR=kunden|alle|keine`,
 | File | Content |
 |---|---|
 | `pd_filter.py` | the program |
-| `dashboard.html` | dashboard |
+| `console.html` | console (served by the filter, or standalone via `file://`) |
+| `dashboard.html` | previous dashboard (`/classic`) |
 | `config.env` | your settings incl. API key (**don't share**) |
 | `customers.txt` | your customer list (not in the repo, template: `customers.txt.example`) |
 | `seen.json`, `overrides.json`, `las.json`, `pd_filter.log`, `pd_filter.pid` | created automatically |
